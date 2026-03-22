@@ -175,13 +175,28 @@ function esc(s) {
   return d.innerHTML;
 }
 
+const FEED_STORAGE_KEY = 'synthesis-feed-filters';
+
+function loadFeedState() {
+  try {
+    const raw = sessionStorage.getItem(FEED_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore corrupt data */ }
+  return {};
+}
+
+function saveFeedState(state) {
+  sessionStorage.setItem(FEED_STORAGE_KEY, JSON.stringify(state));
+}
+
 export async function renderFeed(container) {
-  let status = 'all';
-  let channelId = '';
-  let sortBy = 'published';
-  let sortOrder = 'desc';
-  let page = 1;
-  let perPage = 24;
+  const saved = loadFeedState();
+  let status = saved.status || 'all';
+  let channelId = saved.channelId || '';
+  let sortBy = saved.sortBy || 'published';
+  let sortOrder = saved.sortOrder || 'desc';
+  let page = saved.page || 1;
+  let perPage = saved.perPage || 24;
   let refreshTimer = 0;
 
   const channels = await api.getChannels();
@@ -191,6 +206,7 @@ export async function renderFeed(container) {
       clearTimeout(refreshTimer);
       refreshTimer = 0;
     }
+    saveFeedState({ status, channelId, sortBy, sortOrder, page, perPage });
     const params = { status, page, limit: perPage, sort: sortBy, order: sortOrder };
     if (channelId) params.channel_id = channelId;
     const data = await api.getVideos(params);

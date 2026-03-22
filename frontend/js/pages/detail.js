@@ -56,6 +56,15 @@ function fmtUsd(value) {
   return `$${n.toFixed(6)}`;
 }
 
+function fmtDuration(secs) {
+  if (secs == null || secs <= 0) return '';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 export async function renderDetail(container, videoId) {
   const v = await api.getVideo(videoId);
   const summary = v.summary;
@@ -236,6 +245,10 @@ export async function renderDetail(container, videoId) {
               <span class="text-on-surface-variant">Published</span>
               <span class="text-on-surface font-semibold">${v.published_at ? new Date(v.published_at).toLocaleDateString() : 'N/A'}</span>
             </div>
+            ${v.duration_seconds ? `<div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">Duration</span>
+              <span class="text-on-surface font-semibold">${fmtDuration(v.duration_seconds)}</span>
+            </div>` : ''}
             ${summary ? `<div class="flex justify-between items-center text-sm">
               <span class="text-on-surface-variant">Analyzed</span>
               <span class="text-on-surface font-semibold">${new Date(summary.created_at).toLocaleDateString()}</span>

@@ -38,6 +38,15 @@ function relativeTime(dateStr) {
   return `${weeks}w ago`;
 }
 
+function fmtDuration(secs) {
+  if (secs == null || secs <= 0) return '';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -136,6 +145,7 @@ function videoCard(v) {
           ${readOverlay}
           ${isProcessing ? '<div class="absolute inset-0 bg-black/20"></div>' : ''}
           <div class="absolute top-4 left-4">${badge}</div>
+          ${v.duration_seconds ? `<div class="absolute bottom-4 left-4 px-2 py-1 rounded-md bg-black/75 text-white text-xs font-mono font-semibold">${fmtDuration(v.duration_seconds)}</div>` : ''}
           ${isProcessing ? '<div class="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-surface-container-lowest/80 backdrop-blur-md flex items-center justify-center"><span class="material-symbols-outlined text-primary animate-spin">progress_activity</span></div>' : ''}
         </div>
         <div class="p-6">

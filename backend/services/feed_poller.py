@@ -318,11 +318,15 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
     except Exception as exc:
         logger.warning("Metadata fetch failed for %s: %s", video_id, exc)
 
-    # Update thumbnail
+    # Update thumbnail and duration
     thumb = select_best_thumbnail(metadata)
-    if thumb:
-        with get_db() as conn:
+    duration = metadata.get("duration")
+    duration_seconds = int(duration) if isinstance(duration, (int, float)) and duration > 0 else None
+    with get_db() as conn:
+        if thumb:
             conn.execute("UPDATE videos SET thumbnail_url=? WHERE video_id=?", (thumb, video_id))
+        if duration_seconds is not None:
+            conn.execute("UPDATE videos SET duration_seconds=? WHERE video_id=?", (duration_seconds, video_id))
 
     # Update published_at from metadata if better info available
     try:
@@ -487,18 +491,22 @@ def summarize_video_by_url(video_url: str) -> str:
     if isinstance(rel_ts, (int, float)):
         published = datetime.fromtimestamp(rel_ts, tz=timezone.utc).isoformat()
 
+    duration = metadata.get("duration")
+    duration_seconds = int(duration) if isinstance(duration, (int, float)) and duration > 0 else None
+
     feed_url = channel_id_to_feed_url(channel_id)
     _ensure_manual_channel(channel_id, channel_name, feed_url, metadata)
 
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO videos (channel_id, video_id, title, url, thumbnail_url, published_at, processing_status, processing_error) "
-            "VALUES (?, ?, ?, ?, ?, ?, 'queued', '') "
+            "INSERT INTO videos (channel_id, video_id, title, url, thumbnail_url, published_at, duration_seconds, processing_status, processing_error) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', '') "
             "ON CONFLICT(video_id) DO UPDATE SET "
             "channel_id=excluded.channel_id, title=excluded.title, url=excluded.url, "
             "thumbnail_url=excluded.thumbnail_url, published_at=excluded.published_at, "
+            "duration_seconds=excluded.duration_seconds, "
             "processing_status='queued', processing_error=''",
-            (channel_id, video_id, title, video_url, thumb, published),
+            (channel_id, video_id, title, video_url, thumb, published, duration_seconds),
         )
 
     _start_background_video_processing([(video_id, video_url)])

@@ -32,6 +32,16 @@ def health():
     )
 
 
+@router.get("/stats/cost")
+def total_cost():
+    """Return the total amount spent on LLM summarization."""
+    from backend.database import get_db
+
+    with get_db() as conn:
+        row = conn.execute("SELECT COALESCE(SUM(llm_cost_usd), 0) AS total FROM summaries").fetchone()
+    return {"total_cost_usd": row["total"]}
+
+
 @router.post("/refresh")
 def refresh():
     """Trigger an immediate feed poll + summarization cycle in a background thread."""

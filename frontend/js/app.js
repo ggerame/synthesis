@@ -94,6 +94,18 @@ async function route() {
 window.addEventListener('hashchange', route);
 window.addEventListener('DOMContentLoaded', route);
 
+// ── Total cost badge ──────────────────────────────────────────────────
+async function refreshTotalCost() {
+  try {
+    const { total_cost_usd } = await api.totalCost();
+    const el = document.getElementById('total-cost-value');
+    if (el) el.textContent = `$${total_cost_usd.toFixed(4)}`;
+  } catch (_) { /* silent */ }
+}
+window.addEventListener('DOMContentLoaded', refreshTotalCost);
+// Also refresh after every route change (new summaries may have been created)
+window.addEventListener('hashchange', refreshTotalCost);
+
 // ── Global buttons ────────────────────────────────────────────────────
 document.getElementById('btn-refresh').addEventListener('click', async () => {
   try {
@@ -101,6 +113,7 @@ document.getElementById('btn-refresh').addEventListener('click', async () => {
     showToast('Synchronized', 'Feed poll started.');
     // Re-render the current page so any queued / in-progress videos appear
     await route();
+    refreshTotalCost();
   } catch (e) { showToast('Error', e.message); }
 });
 

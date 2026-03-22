@@ -94,4 +94,7 @@ export const api = {
   health() {
     return request('GET', '/api/health');
   },
+  totalCost() {
+    return request('GET', '/api/stats/cost');
+  },
 };

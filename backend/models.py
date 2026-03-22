@@ -63,6 +63,7 @@ class VideoListItem(BaseModel):
     published_at: str
     discovered_at: str
     is_read: bool
+    duration_seconds: Optional[int] = None
     channel_name: str = ""
     channel_handle: str = ""
     channel_avatar_url: str = ""
@@ -86,6 +87,7 @@ class VideoDetail(BaseModel):
     published_at: str
     discovered_at: str
     is_read: bool
+    duration_seconds: Optional[int] = None
     channel_name: str = ""
     channel_handle: str = ""
     channel_avatar_url: str = ""

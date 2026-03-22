@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS videos (
     published_at    TEXT    NOT NULL DEFAULT '',
     discovered_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     is_read         INTEGER NOT NULL DEFAULT 0,
+    duration_seconds INTEGER,
     processing_status TEXT  NOT NULL DEFAULT 'ready',
     processing_error  TEXT  NOT NULL DEFAULT ''
 );

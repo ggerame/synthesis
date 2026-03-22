@@ -395,7 +395,11 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
                 language=sub_lang if sub_lang else None,
             )
 
-    result = summarize_transcript(transcript)
+    # Extract video title and channel name for LLM context
+    video_title = metadata.get("title") or ""
+    channel_name = metadata.get("channel") or metadata.get("uploader") or ""
+
+    result = summarize_transcript(transcript, title=video_title, channel=channel_name)
 
     if not _video_exists(video_id):
         return

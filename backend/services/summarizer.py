@@ -171,7 +171,43 @@ def _get_client():
     )
 
 
-def _build_messages(transcript: str, language: str) -> list[dict]:
+_TONE_INSTRUCTIONS: dict[str, str] = {
+    "analytical": (
+        "Adopt an analytical tone: be structured, evidence-first, and precise. "
+        "Favour explicit reasoning, technical vocabulary where appropriate, and clear cause-effect chains."
+    ),
+    "creative": (
+        "Adopt a creative, narrative tone: make the output feel editorial and fluid. "
+        "Connect ideas with smooth transitions and tell the story of the content in an engaging way."
+    ),
+    "minimalist": (
+        "Adopt a minimalist tone: be compressed and terse. "
+        "Strip framing to the minimum and surface only the highest-signal points."
+    ),
+}
+
+
+def _tone_instruction(tone: str) -> str:
+    """Return tone guidance sentence, or empty string for unknown tones."""
+    instruction = _TONE_INSTRUCTIONS.get(tone.lower().strip())
+    if not instruction:
+        return ""
+    return " " + instruction
+
+
+def _video_context_line(title: str, channel: str) -> str:
+    """Return a short context header for the prompt, or empty string."""
+    parts = []
+    if title:
+        parts.append(f"Title: {title}")
+    if channel:
+        parts.append(f"Channel: {channel}")
+    if not parts:
+        return ""
+    return "Video context — " + ", ".join(parts) + "\n\n"
+
+
+def _build_messages(transcript: str, language: str, title: str = "", channel: str = "", tone: str = "") -> list[dict]:
     schema_prompt = (
         'Respond ONLY with valid JSON matching this schema: {'
         '"summary": string,'
@@ -180,21 +216,25 @@ def _build_messages(transcript: str, language: str) -> list[dict]:
         '"title": string, "description": string, "start_time": string HH:MM:SS'
         '}}. All text must be written in ' + language + '.'
     )
+    context = _video_context_line(title, channel)
     return [
         {
             "role": "system",
             "content": (
-                "You are an expert at distilling video transcripts into dense, informative summaries. "
+                "You are an expert at distilling YouTube video transcripts into dense, informative summaries. "
+                "You will receive the transcript of a video along with its title and channel name for context. "
                 "Your goal is to capture the actual substance of the content: the facts, arguments, data points, "
                 "examples, and conclusions — not just describe what the video is about at a meta level. "
                 "A reader who has NOT watched the video should come away fully informed after reading your output. "
                 "Use the user's requested language for every field."
+                + _tone_instruction(tone)
             ),
         },
         {
             "role": "user",
             "content": (
-                "Produce a thorough summary of the following transcript.\n\n"
+                context
+                + "Produce a thorough summary of the following video transcript.\n\n"
                 "Rules:\n"
                 "- `summary`: Write 3-5 paragraphs covering the main thesis, the reasoning and evidence presented, "
                 "and the final conclusions or recommendations. Include specific facts, numbers, or examples from the video. "
@@ -211,22 +251,25 @@ def _build_messages(transcript: str, language: str) -> list[dict]:
     ]
 
 
-def _build_chunk_summary_messages(chunk: str, chunk_index: int, total_chunks: int, language: str) -> list[dict]:
+def _build_chunk_summary_messages(chunk: str, chunk_index: int, total_chunks: int, language: str, title: str = "", channel: str = "", tone: str = "") -> list[dict]:
     """Build prompt for summarising a single transcript chunk."""
+    context = _video_context_line(title, channel)
     return [
         {
             "role": "system",
             "content": (
-                "You are an expert at distilling video transcripts into dense, informative summaries. "
+                "You are an expert at distilling YouTube video transcripts into dense, informative summaries. "
                 "You are processing one segment of a longer transcript that has been split into parts. "
                 "Capture all facts, arguments, data points, examples, and conclusions from this segment. "
                 f"Write in {language}."
+                + _tone_instruction(tone)
             ),
         },
         {
             "role": "user",
             "content": (
-                f"This is segment {chunk_index + 1} of {total_chunks} from a video transcript.\n\n"
+                context
+                + f"This is segment {chunk_index + 1} of {total_chunks} from a video transcript.\n\n"
                 "Produce a detailed plain-text summary of this segment. Include all specific facts, numbers, "
                 "names, arguments, and conclusions. Preserve chronological order and note approximate timestamps "
                 "if they appear in the transcript. Be thorough — this summary will be used to produce the final "
@@ -237,7 +280,7 @@ def _build_chunk_summary_messages(chunk: str, chunk_index: int, total_chunks: in
     ]
 
 
-def _build_merge_messages(chunk_summaries: list[str], language: str) -> list[dict]:
+def _build_merge_messages(chunk_summaries: list[str], language: str, title: str = "", channel: str = "", tone: str = "") -> list[dict]:
     """Build prompt that merges per-chunk summaries into the final JSON output."""
     schema_prompt = (
         'Respond ONLY with valid JSON matching this schema: {'
@@ -250,21 +293,24 @@ def _build_merge_messages(chunk_summaries: list[str], language: str) -> list[dic
     combined = "\n\n---\n\n".join(
         f"[Segment {i + 1}]\n{s}" for i, s in enumerate(chunk_summaries)
     )
+    context = _video_context_line(title, channel)
     return [
         {
             "role": "system",
             "content": (
-                "You are an expert at distilling video transcripts into dense, informative summaries. "
+                "You are an expert at distilling YouTube video transcripts into dense, informative summaries. "
                 "Your goal is to capture the actual substance of the content: the facts, arguments, data points, "
                 "examples, and conclusions — not just describe what the video is about at a meta level. "
                 "A reader who has NOT watched the video should come away fully informed after reading your output. "
                 f"Use {language} for every field."
+                + _tone_instruction(tone)
             ),
         },
         {
             "role": "user",
             "content": (
-                "Below are detailed summaries of consecutive segments of a video transcript. "
+                context
+                + "Below are detailed summaries of consecutive segments of a video transcript. "
                 "Combine them into a single coherent output. Remove redundancy from overlapping segments "
                 "and ensure smooth narrative flow.\n\n"
                 "Rules:\n"
@@ -388,13 +434,13 @@ def _chunk_transcript(transcript: str, max_chunk_tokens: int, overlap_tokens: in
 
 def _chunked_summarize(
     client, provider: str, model: str, language: str, transcript: str,
-    max_context: int, max_output: int,
+    max_context: int, max_output: int, title: str = "", channel: str = "", tone: str = "",
 ) -> tuple[dict, str, dict[str, int]]:
     """Map-reduce summarization for transcripts that exceed the context window."""
     # Per-chunk output budget is smaller (summaries are plain text, not full JSON)
     chunk_output_budget = 4_096
     chunk_prompt_overhead = _count_message_tokens(
-        _build_chunk_summary_messages("", 0, 1, language), model,
+        _build_chunk_summary_messages("", 0, 1, language, title, channel, tone), model,
     )
     available = max_context - chunk_prompt_overhead - chunk_output_budget
     overlap = max(100, available // 10)
@@ -407,14 +453,14 @@ def _chunked_summarize(
     model_used = model
 
     for i, chunk in enumerate(chunks):
-        msgs = _build_chunk_summary_messages(chunk, i, len(chunks), language)
+        msgs = _build_chunk_summary_messages(chunk, i, len(chunks), language, title, channel, tone)
         text, model_used, usage = _call_llm(client, provider, model, msgs, chunk_output_budget)
         chunk_summaries.append(text)
         all_usages.append(usage)
         logger.info("Chunk %d/%d summarized (%d tokens used)", i + 1, len(chunks), usage["total_tokens"])
 
     # Merge phase
-    merge_msgs = _build_merge_messages(chunk_summaries, language)
+    merge_msgs = _build_merge_messages(chunk_summaries, language, title, channel, tone)
     payload_text, model_used, merge_usage = _call_llm(client, provider, model, merge_msgs, max_output)
     all_usages.append(merge_usage)
 
@@ -447,7 +493,7 @@ def _is_context_length_error(exc: Exception) -> bool:
     )
 
 
-def summarize_transcript(transcript: str) -> dict:
+def summarize_transcript(transcript: str, *, title: str = "", channel: str = "") -> dict:
     """Send transcript to the configured LLM and return structured JSON.
 
     Returns dict with keys: summary, key_points, chapters, plus LLM usage metadata.
@@ -457,10 +503,11 @@ def summarize_transcript(transcript: str) -> dict:
     provider = _get_provider()
     model = get_setting("azure_openai_model") or "gpt-4.1"
     language = get_setting("summary_language") or "English"
+    tone = get_setting("system_tone") or "Analytical"
 
     client = _get_client()
     max_output = 16_384
-    messages = _build_messages(transcript, language)
+    messages = _build_messages(transcript, language, title, channel, tone)
 
     try:
         payload_text, model_used, usage = _call_llm(client, provider, model, messages, max_output)
@@ -477,6 +524,7 @@ def summarize_transcript(transcript: str) -> dict:
         max_context = _get_max_context_tokens(model)
         parsed, model_used, usage = _chunked_summarize(
             client, provider, model, language, transcript, max_context, max_output,
+            title=title, channel=channel, tone=tone,
         )
 
     parsed["llm_model"] = model_used

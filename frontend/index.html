@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synthesis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+  <!-- Restore theme before paint -->
+  <script>
+    if (localStorage.getItem('synthesis-theme') === 'light') document.documentElement.classList.remove('dark');
+  </script>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+</head>
+<body class="bg-surface text-on-surface font-body min-h-screen">
+
+  <!-- TopAppBar -->
+  <header class="w-full sticky top-0 z-50 shadow-[0_16px_32px_rgba(0,0,0,0.06)] font-['Manrope'] antialiased text-sm tracking-tight" style="background:var(--header-surface)">
+    <div class="flex justify-between items-center px-8 py-4 w-full backdrop-blur-md" style="background:var(--header-bg)">
+      <div class="flex items-center gap-8 min-w-0">
+        <a href="#/" class="flex items-center gap-2 text-2xl font-bold tracking-tighter shrink-0" style="color:var(--header-text)">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" class="w-8 h-8 shrink-0">
+            <rect width="64" height="64" rx="16" fill="#494bd6"/>
+            <path d="M26 12h12v14l10 20a4 4 0 0 1-3.6 5.6H19.6A4 4 0 0 1 16 46l10-20V12z" fill="#c0c1ff" opacity="0.3"/>
+            <path d="M26 12h12v14l10 20a4 4 0 0 1-3.6 5.6H19.6A4 4 0 0 1 16 46l10-20V12z" stroke="#fff" stroke-width="2" stroke-linejoin="round" fill="none"/>
+            <rect x="24" y="10" width="16" height="4" rx="1.5" fill="#fff" opacity="0.7"/>
+            <circle cx="28" cy="42" r="2" fill="#fff" opacity="0.5"/>
+            <circle cx="35" cy="38" r="1.5" fill="#fff" opacity="0.4"/>
+            <circle cx="31" cy="45" r="1" fill="#fff" opacity="0.6"/>
+            <path d="M34 22c3-1 8 0 10 3 2.5 3.5 1 8-1 10-1 1-1 3 0 4 1.5 1.5 1 4-1 5-2 1.2-2 3-1 4.5 0.8 1.2-0.5 2.5-2 2.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            <path d="M38 24c1 2 0 4-1 5" stroke="#fff" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.7"/>
+            <path d="M40 30c-1 1.5-0.5 3 0.5 4" stroke="#fff" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.7"/>
+            <circle cx="42" cy="26" r="1" fill="#c0c1ff"/>
+            <circle cx="39" cy="33" r="1" fill="#c0c1ff"/>
+            <circle cx="41" cy="39" r="1" fill="#c0c1ff"/>
+            <path d="M22 36h20" stroke="#fff" stroke-width="1" stroke-dasharray="2 2" opacity="0.4"/>
+          </svg>
+          Synthesis
+        </a>
+        <div class="ml-6 min-w-0">
+          <div id="page-title" class="text-lg font-bold text-on-surface truncate"></div>
+          <div id="page-subtitle" class="text-xs text-on-surface-variant truncate"></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="btn-theme" class="flex items-center justify-center w-10 h-10 rounded-full transition-colors duration-200 active:scale-95 hover:bg-surface-variant/40 md-state-layer" style="color:var(--header-accent)" title="Toggle light/dark theme">
+          <span class="material-symbols-outlined" id="theme-icon">dark_mode</span>
+        </button>
+        <button id="btn-add" class="flex items-center justify-center w-10 h-10 rounded-full transition-colors duration-200 active:scale-95 hover:bg-surface-variant/40 md-state-layer" style="color:var(--header-accent)">
+          <span class="material-symbols-outlined">add</span>
+        </button>
+        <a href="#/settings" class="flex items-center justify-center w-10 h-10 rounded-full transition-colors duration-200 active:scale-95 hover:bg-surface-variant/40 md-state-layer" style="color:var(--header-accent)">
+          <span class="material-symbols-outlined">settings</span>
+        </a>
+        <button id="btn-refresh" class="flex items-center justify-center w-10 h-10 rounded-full transition-colors duration-200 active:scale-95 hover:bg-surface-variant/40 md-state-layer" title="Refresh feeds" style="color:var(--header-accent)">
+          <span class="material-symbols-outlined">sync</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main content area -->
+  <div id="app"></div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-20 right-8 z-50 bg-surface-container-highest glass-effect px-6 py-4 rounded-xl elevation-3 flex items-center gap-4 border border-outline-variant/20 transition-all duration-300 translate-y-24 opacity-0 pointer-events-none">
+    <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+      <span class="material-symbols-outlined text-primary text-xl">sync</span>
+    </div>
+    <div>
+      <p class="text-sm font-bold" id="toast-title">Synchronized</p>
+      <p class="text-xs text-on-surface-variant" id="toast-msg">Gallery updated.</p>
+    </div>
+  </div>
+
+  <!-- Smart Add Modal -->
+  <div id="add-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50">
+    <div class="bg-surface-container-high rounded-xl p-8 w-full max-w-md mx-4 elevation-3">
+      <h2 class="text-xl font-bold mb-2">Add to Synthesis</h2>
+      <p class="text-sm text-on-surface-variant mb-6">Paste a YouTube video URL to summarize it once, or a channel @handle / ID to subscribe.</p>
+      <label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-widest mb-3">YouTube URL, @handle, or Channel ID</label>
+      <input id="add-input" type="text" placeholder="https://youtube.com/watch?v=... or @handle"
+        class="w-full bg-surface-container-lowest rounded-lg border-2 border-outline-variant/20 focus:ring-0 focus:border-primary text-on-surface p-4 transition-colors font-mono text-sm mb-2" />
+      <p id="add-hint" class="text-xs text-on-surface-variant mb-6 h-4"></p>
+      <div class="flex justify-end gap-4">
+        <button id="add-cancel" class="text-on-surface-variant font-bold hover:text-on-surface transition-colors px-4 py-2">Cancel</button>
+        <button id="add-confirm" class="px-6 py-2.5 bg-primary text-on-primary font-bold text-sm rounded-lg elevation-1 active:scale-95 transition-all hover:elevation-2">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

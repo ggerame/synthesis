@@ -1,0 +1,14 @@
+services:
+  synthesis:
+    build: .
+    container_name: synthesis
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - SYNTHESIS_DATA_DIR=/app/data
+    restart: unless-stopped

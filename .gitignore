@@ -1,0 +1,29 @@
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Tool caches and coverage output
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local environment files
+.env*
+!.env.example
+
+# Generated runtime data
+data/
+synthesis.db
+*.db
+*.db-shm
+*.db-wal
+
+# Tailwind CSS build output
+frontend/css/styles.css

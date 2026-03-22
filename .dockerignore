@@ -1,0 +1,9 @@
+.venv
+__pycache__
+.git
+output/
+stitch/
+*.pyc
+.rss_state.db
+data/
+.env

@@ -2,7 +2,8 @@
 
 **A self-hosted YouTube intelligence dashboard that automatically discovers, transcribes, and summarizes videos from your subscriptions using any OpenAI-compatible LLM.**
 
-New videos are detected via RSS feed polling, subtitles are downloaded with [yt-dlp](https://github.com/yt-dlp/yt-dlp), transcripts are analyzed by the LLM of your choice, and the structured results — summaries, key points, and AI-generated chapters — are served through a clean, dark-mode web UI.
+New videos are detected via RSS feed polling, subtitles are analyzed by the LLM of your choice, and the structured results — summaries, key points, and AI-generated chapters — are served through a web UI. The chapters are linked to the actual timestamps on Youtube.
+No video is downloaded.
 
 > **Note on the frontend** — The frontend is built in plain vanilla JavaScript and Tailwind CSS. It was vibe-coded from the ground up by someone who genuinely hates frontend frameworks.
 
@@ -102,26 +103,26 @@ Open [http://localhost:8000](http://localhost:8000).
 
 ```
 ┌──────────────────────────────────────────────────┐
-│                    Browser                        │
-│   Vanilla JS SPA + Tailwind CSS                   │
-│   Pages: Feed · Video Detail · Settings           │
+│                    Browser                       │
+│   Vanilla JS SPA + Tailwind CSS                  │
+│   Pages: Feed · Video Detail · Settings          │
 └─────────────────────┬────────────────────────────┘
                       │ REST API
 ┌─────────────────────▼────────────────────────────┐
-│               FastAPI (Uvicorn)                    │
-│   Routers: videos · channels · settings · system  │
-│   Static files served at /                         │
+│               FastAPI (Uvicorn)                  │
+│   Routers: videos · channels · settings · system │
+│   Static files served at /                       │
 ├──────────────────────────────────────────────────┤
-│            APScheduler (background)                │
-│   RSS polling → subtitle download → LLM summary   │
+│            APScheduler (background)              │
+│   RSS polling → subtitle download → LLM summary  │
 ├──────────────────────────────────────────────────┤
-│   Services:                                        │
-│   feed_poller · summarizer · subtitles ·           │
-│   channel_resolver                                 │
+│   Services:                                      │
+│   feed_poller · summarizer · subtitles ·         │
+│   channel_resolver                               │
 ├──────────────────────────────────────────────────┤
-│               SQLite (WAL mode)                    │
-│   channels · videos · summaries · chapters ·       │
-│   settings · model_pricing                         │
+│               SQLite (WAL mode)                  │
+│   channels · videos · summaries · chapters ·     │
+│   settings · model_pricing                       │
 └──────────────────────────────────────────────────┘
 ```
 

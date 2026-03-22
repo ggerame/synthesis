@@ -34,7 +34,20 @@ For headless or automated deployments, you can optionally pre-seed settings via 
 
 ## Screenshots
 
-<!-- Add screenshots here -->
+<p align="center">
+  <img src="docs/screenshots/channel-filter.png" alt="Feed — video gallery with channel filter" width="800" />
+</p>
+<p align="center"><em>The Feed — gallery grid with status badges, channel filter, cost tracking, and processing indicators.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/detail.png" alt="Video detail with summary, key points, and chapters" width="800" />
+</p>
+<p align="center"><em>Video Detail — executive summary, key points, structured chapters with timestamps, and token/cost breakdown.</em></p>
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Settings page with LLM provider configuration" width="800" />
+</p>
+<p align="center"><em>Configuration — channel management, LLM provider selection, output language, and scheduling.</em></p>
 
 ## Configuration
 

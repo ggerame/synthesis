@@ -377,6 +377,13 @@ def _call_llm(client, provider: str, model: str, messages: list[dict],
     return _call_chat_completions(client, model, messages, max_output_tokens)
 
 
+def _fix_invalid_escapes(text: str) -> str:
+    """Replace invalid JSON backslash escapes with escaped backslashes."""
+    import re
+    # JSON only allows: \" \\ \/ \b \f \n \r \t \uXXXX
+    return re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', text)
+
+
 def _parse_llm_json(payload_text: str) -> dict:
     """Strip markdown fences and parse JSON from LLM response."""
     text = payload_text.strip()
@@ -385,7 +392,11 @@ def _parse_llm_json(payload_text: str) -> dict:
         text = text[first_nl + 1:]
     if text.endswith("```"):
         text = text[:-3]
-    parsed = json.loads(text.strip())
+    text = text.strip()
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        parsed = json.loads(_fix_invalid_escapes(text))
     if not isinstance(parsed, dict):
         raise RuntimeError("LLM response JSON must be an object")
     return parsed

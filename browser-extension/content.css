@@ -1,0 +1,500 @@
+/* ── Synthesis YouTube content-script styles ────────────────────────
+   All rules scoped under #synthesis-ext-root to avoid leaking into YT. */
+
+#synthesis-ext-root {
+  margin: 12px 0;
+  font-family: "Roboto", "Arial", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--yt-spec-text-primary, #0f0f0f);
+}
+
+html[dark] #synthesis-ext-root {
+  color: var(--yt-spec-text-primary, #f1f1f1);
+}
+
+/* ── Card ─────────────────────────────────────────────────────────── */
+
+.synth-card {
+  background: var(--yt-spec-brand-background-solid, #fff);
+  border: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+html[dark] .synth-card {
+  background: var(--yt-spec-brand-background-solid, #212121);
+  border-color: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+}
+
+.synth-card-error {
+  border-color: #dc262640;
+}
+
+html[dark] .synth-card-error {
+  border-color: #ef444440;
+}
+
+/* ── Header ───────────────────────────────────────────────────────── */
+
+.synth-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
+}
+
+html[dark] .synth-header {
+  border-bottom-color: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+}
+
+.synth-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.synth-icon {
+  color: #065fd4;
+  flex-shrink: 0;
+}
+
+html[dark] .synth-icon {
+  color: #3ea6ff;
+}
+
+.synth-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────── */
+
+.synth-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.synth-badge-ready { background: #16a34a20; color: #16a34a; }
+html[dark] .synth-badge-ready { background: #22c55e20; color: #22c55e; }
+
+.synth-badge-processing { background: #2563eb20; color: #2563eb; }
+html[dark] .synth-badge-processing { background: #3b82f620; color: #60a5fa; }
+
+.synth-badge-failed { background: #dc262620; color: #dc2626; }
+html[dark] .synth-badge-failed { background: #ef444420; color: #f87171; }
+
+/* ── Header actions ────────────────────────────────────────────────── */
+
+.synth-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Mark Read button ─────────────────────────────────────────────── */
+
+.synth-read-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
+  border-radius: 18px;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--yt-spec-text-secondary, #606060);
+  transition: background 0.15s, color 0.15s;
+}
+
+.synth-read-btn:hover {
+  background: var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.05));
+  color: var(--yt-spec-text-primary, #0f0f0f);
+}
+
+html[dark] .synth-read-btn {
+  border-color: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+  color: var(--yt-spec-text-secondary, #aaa);
+}
+
+html[dark] .synth-read-btn:hover {
+  background: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+  color: var(--yt-spec-text-primary, #f1f1f1);
+}
+
+.synth-read-icon {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── Collapse button ──────────────────────────────────────────────── */
+
+.synth-collapse-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  color: var(--yt-spec-text-secondary, #606060);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.synth-collapse-btn:hover {
+  background: var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
+}
+
+.synth-collapse-btn svg {
+  transition: transform 0.2s;
+}
+
+.synth-collapse-btn.synth-rotated svg {
+  transform: rotate(180deg);
+}
+
+/* ── Body ─────────────────────────────────────────────────────────── */
+
+.synth-body {
+  padding: 16px;
+}
+
+.synth-body.synth-collapsed {
+  display: none;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────── */
+
+.synth-section {
+  margin-top: 16px;
+}
+
+.synth-section:first-child {
+  margin-top: 0;
+}
+
+.synth-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--yt-spec-text-secondary, #606060);
+  margin: 0 0 8px;
+}
+
+html[dark] .synth-section-title {
+  color: var(--yt-spec-text-secondary, #aaa);
+}
+
+.synth-paragraph {
+  margin: 0 0 8px;
+  line-height: 1.7;
+}
+
+/* ── Key points ───────────────────────────────────────────────────── */
+
+.synth-key-points {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.synth-key-points li {
+  margin-bottom: 4px;
+}
+
+/* ── Chapters ─────────────────────────────────────────────────────── */
+
+.synth-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.synth-chapter {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  width: 100%;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.synth-chapter:hover {
+  background: var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.05));
+}
+
+html[dark] .synth-chapter:hover {
+  background: var(--yt-spec-10-percent-layer, rgba(255, 255, 255, 0.1));
+}
+
+.synth-chapter-time {
+  font-family: "Roboto Mono", monospace;
+  font-size: 13px;
+  color: #065fd4;
+  white-space: nowrap;
+  padding-top: 1px;
+}
+
+html[dark] .synth-chapter-time {
+  color: #3ea6ff;
+}
+
+.synth-chapter-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.synth-chapter-title {
+  font-weight: 500;
+}
+
+.synth-chapter-desc {
+  font-size: 12px;
+  color: var(--yt-spec-text-secondary, #606060);
+  margin-top: 2px;
+}
+
+html[dark] .synth-chapter-desc {
+  color: var(--yt-spec-text-secondary, #aaa);
+}
+
+/* ── Meta tags ────────────────────────────────────────────────────── */
+
+.synth-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.synth-tag {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 16px;
+  background: var(--yt-spec-badge-chip-background, #f2f2f2);
+  color: var(--yt-spec-text-secondary, #606060);
+}
+
+html[dark] .synth-tag {
+  background: var(--yt-spec-badge-chip-background, #333);
+  color: var(--yt-spec-text-secondary, #aaa);
+}
+
+/* ── LLM Stats ────────────────────────────────────────────────────── */
+
+.synth-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.synth-stat {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  background: var(--yt-spec-badge-chip-background, #f2f2f2);
+  border-radius: 10px;
+  border-left: 3px solid #065fd4;
+}
+
+html[dark] .synth-stat {
+  background: var(--yt-spec-badge-chip-background, #282828);
+  border-left-color: #3ea6ff;
+}
+
+.synth-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--yt-spec-text-secondary, #606060);
+}
+
+html[dark] .synth-stat-label {
+  color: var(--yt-spec-text-secondary, #aaa);
+}
+
+.synth-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.synth-stat-detail {
+  font-size: 11px;
+  color: var(--yt-spec-text-secondary, #606060);
+  margin-top: 2px;
+}
+
+html[dark] .synth-stat-detail {
+  color: var(--yt-spec-text-secondary, #aaa);
+}
+
+/* ── Loading spinner ──────────────────────────────────────────────── */
+
+.synth-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  color: var(--yt-spec-text-secondary, #606060);
+}
+
+html[dark] .synth-loading {
+  color: var(--yt-spec-text-secondary, #aaa);
+}
+
+.synth-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
+  border-top-color: #065fd4;
+  border-radius: 50%;
+  animation: synth-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+html[dark] .synth-spinner {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-top-color: #3ea6ff;
+}
+
+@keyframes synth-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────── */
+
+.synth-progress-bar {
+  height: 4px;
+  background: var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+html[dark] .synth-progress-bar {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.synth-progress-fill {
+  height: 100%;
+  background: #065fd4;
+  border-radius: 2px;
+  width: 30%;
+}
+
+html[dark] .synth-progress-fill {
+  background: #3ea6ff;
+}
+
+.synth-progress-animate {
+  animation: synth-progress 2s ease-in-out infinite;
+}
+
+@keyframes synth-progress {
+  0%   { width: 10%; margin-left: 0; }
+  50%  { width: 40%; margin-left: 30%; }
+  100% { width: 10%; margin-left: 90%; }
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+
+.synth-queue-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: #065fd4;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+  margin-top: 8px;
+}
+
+.synth-queue-btn:hover {
+  background: #0550b3;
+}
+
+html[dark] .synth-queue-btn {
+  background: #3ea6ff;
+  color: #0f0f0f;
+}
+
+html[dark] .synth-queue-btn:hover {
+  background: #65b8ff;
+}
+
+.synth-retry-btn {
+  padding: 8px 16px;
+  background: var(--yt-spec-badge-chip-background, #f2f2f2);
+  color: var(--yt-spec-text-primary, #0f0f0f);
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+  margin-top: 8px;
+}
+
+.synth-retry-btn:hover {
+  background: var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.15));
+}
+
+html[dark] .synth-retry-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f1f1f1;
+}
+
+html[dark] .synth-retry-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Text states ──────────────────────────────────────────────────── */
+
+.synth-empty-text {
+  margin: 0 0 4px;
+  color: var(--yt-spec-text-secondary, #606060);
+}
+
+html[dark] .synth-empty-text {
+  color: var(--yt-spec-text-secondary, #aaa);
+}
+
+.synth-error-text {
+  margin: 0 0 8px;
+  color: #dc2626;
+}
+
+html[dark] .synth-error-text {
+  color: #f87171;
+}

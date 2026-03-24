@@ -27,3 +27,6 @@ synthesis.db
 
 # Tailwind CSS build output
 frontend/css/styles.css
+
+# Browser extension build output
+browser-extension/dist/

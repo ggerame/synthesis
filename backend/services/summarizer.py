@@ -210,6 +210,7 @@ def _video_context_line(title: str, channel: str) -> str:
 def _build_messages(transcript: str, language: str, title: str = "", channel: str = "", tone: str = "") -> list[dict]:
     schema_prompt = (
         'Respond ONLY with valid JSON matching this schema: {'
+        '"primary_topic": string,'
         '"summary": string,'
         '"key_points": array of strings,'
         '"chapters": array of {'
@@ -236,6 +237,9 @@ def _build_messages(transcript: str, language: str, title: str = "", channel: st
                 context
                 + "Produce a thorough summary of the following video transcript.\n\n"
                 "Rules:\n"
+                "- `primary_topic`: A short phrase (3-8 words) that captures the core subject of the entire video. "
+                "It should read like a category label or headline theme, e.g. 'Rust Memory Safety Model', "
+                "'Impact of AI on Healthcare', 'Building a REST API with FastAPI'. Do NOT use the video title verbatim.\n"
                 "- `summary`: Write 3-5 paragraphs covering the main thesis, the reasoning and evidence presented, "
                 "and the final conclusions or recommendations. Include specific facts, numbers, or examples from the video. "
                 "Do NOT write 'this video explains...' — write the actual information directly.\n"
@@ -284,6 +288,7 @@ def _build_merge_messages(chunk_summaries: list[str], language: str, title: str 
     """Build prompt that merges per-chunk summaries into the final JSON output."""
     schema_prompt = (
         'Respond ONLY with valid JSON matching this schema: {'
+        '"primary_topic": string,'
         '"summary": string,'
         '"key_points": array of strings,'
         '"chapters": array of {'
@@ -314,6 +319,9 @@ def _build_merge_messages(chunk_summaries: list[str], language: str, title: str 
                 "Combine them into a single coherent output. Remove redundancy from overlapping segments "
                 "and ensure smooth narrative flow.\n\n"
                 "Rules:\n"
+                "- `primary_topic`: A short phrase (3-8 words) that captures the core subject of the entire video. "
+                "It should read like a category label or headline theme, e.g. 'Rust Memory Safety Model', "
+                "'Impact of AI on Healthcare', 'Building a REST API with FastAPI'. Do NOT use the video title verbatim.\n"
                 "- `summary`: Write 3-5 paragraphs covering the main thesis, the reasoning and evidence presented, "
                 "and the final conclusions or recommendations. Include specific facts, numbers, or examples. "
                 "Do NOT write 'this video explains...' — write the actual information directly.\n"
@@ -377,15 +385,10 @@ def _call_llm(client, provider: str, model: str, messages: list[dict],
     return _call_chat_completions(client, model, messages, max_output_tokens)
 
 
-def _fix_invalid_escapes(text: str) -> str:
-    """Replace invalid JSON backslash escapes with escaped backslashes."""
-    import re
-    # JSON only allows: \" \\ \/ \b \f \n \r \t \uXXXX
-    return re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', text)
-
-
 def _parse_llm_json(payload_text: str) -> dict:
     """Strip markdown fences and parse JSON from LLM response."""
+    from json_repair import repair_json
+
     text = payload_text.strip()
     if text.startswith("```"):
         first_nl = text.index("\n") if "\n" in text else 3
@@ -393,10 +396,11 @@ def _parse_llm_json(payload_text: str) -> dict:
     if text.endswith("```"):
         text = text[:-3]
     text = text.strip()
+
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        parsed = json.loads(_fix_invalid_escapes(text))
+        parsed = json.loads(repair_json(text))
     if not isinstance(parsed, dict):
         raise RuntimeError("LLM response JSON must be an object")
     return parsed

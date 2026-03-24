@@ -264,6 +264,10 @@ export async function renderFeed(container) {
               ${channelItems}
             </div>
           </div>
+          <button id="purge-old-read" class="flex items-center gap-2 bg-surface-container rounded-xl px-4 h-11 text-sm text-on-surface hover:bg-error-container hover:text-on-error-container transition-colors" title="Delete all read videos older than the download window">
+            <span class="material-symbols-outlined text-base">auto_delete</span>
+            <span>Purge old read</span>
+          </button>
           <div class="flex items-center gap-1">
             <div class="relative" id="sort-dropdown">
               <button id="sort-toggle" class="flex items-center gap-2 bg-surface-container rounded-xl px-4 h-11 text-sm text-on-surface hover:bg-surface-container-high transition-colors">
@@ -360,6 +364,19 @@ export async function renderFeed(container) {
       perPage = Number(perPageSelect.value);
       page = 1;
       load();
+    });
+
+    const purgeBtn = container.querySelector('#purge-old-read');
+    if (purgeBtn) purgeBtn.addEventListener('click', async () => {
+      if (!confirm('Delete all read videos older than the download window? This cannot be undone.')) return;
+      try {
+        const res = await api.purgeOldReadVideos();
+        showToast('Purged', `${res.deleted} old read video${res.deleted === 1 ? '' : 's'} removed.`);
+        page = 1;
+        await load();
+      } catch (err) {
+        showToast('Error', err.message);
+      }
     });
 
     container.querySelectorAll('.retry-video').forEach(btn => {

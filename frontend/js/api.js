@@ -40,6 +40,9 @@ export const api = {
   summarizeUrl(url) {
     return request('POST', '/api/videos/summarize', { url });
   },
+  purgeOldReadVideos() {
+    return request('DELETE', '/api/videos/purge-old-read');
+  },
 
   // Channels
   getChannels() {

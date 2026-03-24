@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { width: 220px; font-family: "Segoe UI", Roboto, Arial, sans-serif; font-size: 13px; color: #1a1a1a; background: #fff; }
+    .popup-header { padding: 12px 14px 8px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 8px; }
+    .popup-header img { width: 20px; height: 20px; }
+    .popup-header span { font-weight: 700; font-size: 14px; letter-spacing: -0.3px; }
+    .popup-list { list-style: none; padding: 4px 0; }
+    .popup-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; transition: background 0.1s; border: none; background: none; width: 100%; font: inherit; color: inherit; text-align: left; }
+    .popup-item:hover { background: #f3f4f6; }
+    .popup-item .material-symbols-outlined { font-size: 18px; color: #065fd4; }
+    .popup-item.toggle-off .material-symbols-outlined { color: #999; }
+    .popup-sep { height: 1px; background: #eee; margin: 2px 0; }
+    .popup-sub { font-size: 11px; color: #888; margin-left: 28px; margin-top: -6px; padding-bottom: 4px; }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #27272a; color: #e4e4e7; }
+      .popup-header { border-bottom-color: #3f3f46; }
+      .popup-item:hover { background: #3f3f46; }
+      .popup-item .material-symbols-outlined { color: #60a5fa; }
+      .popup-item.toggle-off .material-symbols-outlined { color: #52525b; }
+      .popup-sep { background: #3f3f46; }
+    }
+  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" />
+</head>
+<body>
+  <div class="popup-header">
+    <img src="icons/icon48.png" alt="Synthesis">
+    <span>Synthesis</span>
+  </div>
+  <ul class="popup-list">
+    <li>
+      <button class="popup-item" id="toggle-btn">
+        <span class="material-symbols-outlined" id="toggle-icon">toggle_on</span>
+        <span id="toggle-label">Enabled</span>
+      </button>
+    </li>
+    <div class="popup-sep"></div>
+    <li>
+      <button class="popup-item" id="open-frontend">
+        <span class="material-symbols-outlined">open_in_new</span>
+        Open Dashboard
+      </button>
+    </li>
+    <li>
+      <button class="popup-item" id="open-settings">
+        <span class="material-symbols-outlined">settings</span>
+        Settings
+      </button>
+    </li>
+  </ul>
+  <script src="popup.js"></script>
+</body>
+</html>

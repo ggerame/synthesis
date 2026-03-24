@@ -6,3 +6,4 @@ openai
 yt-dlp
 defusedxml
 tiktoken
+json-repair

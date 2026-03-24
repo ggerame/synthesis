@@ -205,6 +205,40 @@ def update_video(video_id: str, body: VideoReadPatch):
     return {"ok": True}
 
 
+@router.delete("/purge-old-read")
+def purge_old_read_videos():
+    """Delete all read videos older than the max_video_age_days setting."""
+    from datetime import datetime, timedelta, timezone
+    from backend.database import get_setting
+
+    try:
+        max_age = int(get_setting("max_video_age_days") or "30")
+    except (ValueError, TypeError):
+        max_age = 30
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=max_age)).isoformat()
+
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT video_id, channel_id FROM videos "
+            "WHERE is_read = 1 AND published_at < ? "
+            "AND processing_status NOT IN ('queued','downloading','transcribing','summarizing')",
+            (cutoff,),
+        ).fetchall()
+
+        for row in rows:
+            conn.execute("DELETE FROM chapters WHERE video_id=?", (row["video_id"],))
+            conn.execute("DELETE FROM summaries WHERE video_id=?", (row["video_id"],))
+            conn.execute("DELETE FROM videos WHERE video_id=?", (row["video_id"],))
+
+    # Clean up hidden channels that may now be empty
+    from backend.services.feed_poller import _cleanup_hidden_channel_if_empty
+    seen_channels = {row["channel_id"] for row in rows}
+    for ch_id in seen_channels:
+        _cleanup_hidden_channel_if_empty(ch_id)
+
+    return {"deleted": len(rows)}
+
+
 @router.post("/summarize")
 def manual_summarize(body: SummarizeRequest):
     try:

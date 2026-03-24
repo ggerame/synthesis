@@ -419,12 +419,13 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
     llm_cost_raw = result.get("llm_cost_usd")
     llm_cost_usd = float(llm_cost_raw) if llm_cost_raw is not None else None
 
-    # Determine primary topic from first chapter title or first key point
-    primary_topic = ""
-    if chapters:
-        primary_topic = chapters[0].get("title", "")
-    elif key_points:
-        primary_topic = key_points[0][:50]
+    # Use LLM-generated topic; fall back to first chapter title or key point
+    primary_topic = result.get("primary_topic", "").strip()
+    if not primary_topic:
+        if chapters:
+            primary_topic = chapters[0].get("title", "")
+        elif key_points:
+            primary_topic = key_points[0][:50]
 
     with get_db() as conn:
         conn.execute(

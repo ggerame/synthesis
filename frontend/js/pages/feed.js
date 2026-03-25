@@ -1,6 +1,7 @@
 /** The Feed — gallery grid page. */
 import { api } from '../api.js';
 import { showToast } from '../app.js';
+import { showConfirm } from '../components/modal.js';
 
 const ACTIVE_STATUSES = new Set(['queued', 'downloading', 'transcribing', 'summarizing']);
 
@@ -136,7 +137,7 @@ function videoCard(v) {
 
   return `
     <article class="group relative bg-surface-container rounded-xl overflow-hidden hover:bg-surface-container-high transition-all duration-200 elevation-1 hover:elevation-2">
-      <button data-delete-video="${v.video_id}" class="delete-video absolute right-4 top-4 z-10 h-10 w-10 rounded-full bg-surface-container-lowest/85 text-on-surface-variant opacity-0 shadow-lg backdrop-blur-md transition-all duration-200 hover:text-error group-hover:opacity-100 active:scale-95" title="Delete video">
+      <button data-delete-video="${v.video_id}" class="delete-video absolute right-4 top-4 z-10 h-10 w-10 rounded-full bg-surface-container-lowest/85 text-on-surface-variant sm:opacity-0 shadow-lg backdrop-blur-md transition-all duration-200 hover:text-error sm:group-hover:opacity-100 active:scale-95" title="Delete video">
         <span class="material-symbols-outlined text-[20px]">delete</span>
       </button>
       <a href="#/video/${v.video_id}" class="block">
@@ -368,7 +369,7 @@ export async function renderFeed(container) {
 
     const purgeBtn = container.querySelector('#purge-old-read');
     if (purgeBtn) purgeBtn.addEventListener('click', async () => {
-      if (!confirm('Delete all read videos older than the download window? This cannot be undone.')) return;
+      if (!await showConfirm({ title: 'Purge Old Videos', message: 'Delete all read videos older than the download window? This cannot be undone.', confirmText: 'Purge', destructive: true })) return;
       try {
         const res = await api.purgeOldReadVideos();
         showToast('Purged', `${res.deleted} old read video${res.deleted === 1 ? '' : 's'} removed.`);
@@ -398,7 +399,7 @@ export async function renderFeed(container) {
           const msg = check.will_redownload
             ? 'This video belongs to a subscribed channel and is within the automatic download range. It will be downloaded again on the next poll.\n\nDelete anyway?'
             : 'Delete this video from the library?';
-          if (!confirm(msg)) return;
+          if (!await showConfirm({ title: 'Delete Video', message: msg, confirmText: 'Delete', destructive: true })) return;
           await api.deleteVideo(btn.dataset.deleteVideo);
           showToast('Deleted', 'Video removed from the library.');
           await load();

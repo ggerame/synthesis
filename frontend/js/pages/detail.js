@@ -1,6 +1,7 @@
 /** Video Detail page. */
 import { api } from '../api.js';
 import { showToast } from '../app.js';
+import { showConfirm } from '../components/modal.js';
 
 const ACTIVE_STATUSES = new Set(['queued', 'downloading', 'transcribing', 'summarizing']);
 
@@ -322,7 +323,7 @@ export async function renderDetail(container, videoId) {
       const msg = check.will_redownload
         ? 'This video belongs to a subscribed channel and is within the automatic download range. It will be downloaded again on the next poll.\n\nDelete anyway?'
         : 'Delete this video from the library?';
-      if (!confirm(msg)) return;
+      if (!await showConfirm({ title: 'Delete Video', message: msg, confirmText: 'Delete', destructive: true })) return;
       await api.deleteVideo(v.video_id);
       showToast('Deleted', 'Video removed from the library.');
       location.hash = '#/';

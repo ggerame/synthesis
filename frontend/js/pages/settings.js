@@ -1,6 +1,7 @@
 /** Settings page. */
 import { api } from '../api.js';
 import { showToast } from '../app.js';
+import { showConfirm } from '../components/modal.js';
 
 const TONE_OPTIONS = {
   Analytical: {
@@ -546,7 +547,7 @@ export async function renderSettings(container) {
   container.querySelectorAll('.delete-ch').forEach(btn => {
     btn.addEventListener('click', async () => {
       const chId = btn.dataset.delete;
-      if (!confirm('Remove this channel and all its videos?')) return;
+      if (!await showConfirm({ title: 'Remove Channel', message: 'Remove this channel and all its videos?', confirmText: 'Remove', destructive: true })) return;
       try {
         await api.deleteChannel(chId);
         showToast('Removed', 'Channel deleted.');
@@ -673,7 +674,7 @@ export async function renderSettings(container) {
   container.querySelectorAll('.delete-pricing').forEach(btn => {
     btn.addEventListener('click', async () => {
       const pricingId = btn.dataset.deletePricing;
-      if (!confirm('Remove this model pricing?')) return;
+      if (!await showConfirm({ title: 'Remove Pricing', message: 'Remove this model pricing?', confirmText: 'Remove', destructive: true })) return;
       try {
         await api.deleteModelPricing(pricingId);
         showToast('Removed', 'Model pricing deleted.');
@@ -711,7 +712,7 @@ export async function renderSettings(container) {
   container.querySelector('#db-import-input')?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!confirm('This will replace ALL current data (channels, videos, summaries, settings) with the imported database. Continue?')) {
+    if (!await showConfirm({ title: 'Import Database', message: 'This will replace ALL current data (channels, videos, summaries, settings) with the imported database. Continue?', confirmText: 'Import', destructive: true })) {
       e.target.value = '';
       return;
     }

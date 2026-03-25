@@ -146,12 +146,12 @@ export async function renderSettings(container) {
             <div class="space-y-4">
               <div>
                 <label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-widest mb-2">Model</label>
-                <input id="s-model" type="text" value="${esc(settings.azure_openai_model)}"
+                <input id="s-model" type="text" value="${esc(settings.llm_model)}"
                   class="w-full bg-surface-container-lowest rounded-lg border-2 border-outline-variant/20 focus:ring-0 focus:border-primary text-on-surface p-3 transition-colors font-mono text-sm" />
               </div>
               <div id="endpoint-row">
                 <label id="endpoint-label" class="block text-xs font-semibold text-on-surface-variant uppercase tracking-widest mb-2">API Endpoint</label>
-                <input id="s-endpoint" type="url" value="${esc(settings.azure_openai_endpoint)}"
+                <input id="s-endpoint" type="url" value="${esc(settings.llm_endpoint)}"
                   class="w-full bg-surface-container-lowest rounded-lg border-2 border-outline-variant/20 focus:ring-0 focus:border-primary text-on-surface p-3 transition-colors font-mono text-sm" />
                 <p id="endpoint-hint" class="mt-1 text-[10px] text-on-surface-variant uppercase tracking-tighter"></p>
               </div>
@@ -166,7 +166,7 @@ export async function renderSettings(container) {
               <div>
                 <label class="block text-xs font-semibold text-on-surface-variant uppercase tracking-widest mb-2">API Key</label>
                 <div class="relative">
-                  <input id="s-key" type="password" value="${esc(settings.azure_openai_key)}"
+                  <input id="s-key" type="password" value="${esc(settings.llm_api_key)}"
                     class="w-full bg-surface-container-lowest rounded-lg border-2 border-outline-variant/20 focus:ring-0 focus:border-primary text-on-surface p-3 transition-colors font-mono text-sm pr-12" />
                   <button id="toggle-key-vis" class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors">
                     <span class="material-symbols-outlined text-sm">visibility</span>
@@ -565,9 +565,9 @@ export async function renderSettings(container) {
   container.querySelector('#save-btn')?.addEventListener('click', async () => {
     const payload = {
       llm_provider: selectedProvider,
-      azure_openai_endpoint: container.querySelector('#s-endpoint').value,
-      azure_openai_key: container.querySelector('#s-key').value,
-      azure_openai_model: container.querySelector('#s-model').value,
+      llm_endpoint: container.querySelector('#s-endpoint').value,
+      llm_api_key: container.querySelector('#s-key').value,
+      llm_model: container.querySelector('#s-model').value,
       azure_api_version: container.querySelector('#s-api-version').value,
       summary_language: container.querySelector('#s-lang').value,
       poll_interval_minutes: container.querySelector('#s-poll').value,

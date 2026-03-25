@@ -249,9 +249,9 @@ export async function renderFeed(container) {
     const totalPages = Math.ceil(data.total / data.limit) || 1;
 
     container.innerHTML = `
-      <main class="w-full max-w-none px-6 py-12 sm:px-8 xl:px-12 2xl:px-16">
-        <section class="flex flex-wrap items-center gap-3 mb-10">
-          <div class="flex items-center bg-surface-container rounded-xl p-1.5 gap-1">
+      <main class="w-full max-w-none px-4 py-8 sm:px-8 sm:py-12 xl:px-12 2xl:px-16">
+        <section class="flex flex-wrap items-center gap-3 mb-8 sm:mb-10">
+          <div class="flex items-center bg-surface-container rounded-xl p-1.5 gap-1 overflow-x-auto">
             ${filterChips}
           </div>
           <div class="relative" id="channel-dropdown">
@@ -266,7 +266,7 @@ export async function renderFeed(container) {
           </div>
           <button id="purge-old-read" class="flex items-center gap-2 bg-surface-container rounded-xl px-4 h-11 text-sm text-on-surface hover:bg-error-container hover:text-on-error-container transition-colors" title="Delete all read videos older than the download window">
             <span class="material-symbols-outlined text-base">auto_delete</span>
-            <span>Purge old read</span>
+            <span class="hidden sm:inline">Purge old read</span>
           </button>
           <div class="flex items-center gap-1">
             <div class="relative" id="sort-dropdown">

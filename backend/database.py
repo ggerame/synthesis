@@ -78,9 +78,9 @@ CREATE TABLE IF NOT EXISTS model_pricing (
 
 DEFAULT_SETTINGS: dict[str, str] = {
     "llm_provider": "azure",
-    "azure_openai_endpoint": "",
-    "azure_openai_key": "",
-    "azure_openai_model": "gpt-4.1",
+    "llm_endpoint": "",
+    "llm_api_key": "",
+    "llm_model": "gpt-5.4-nano",
     "azure_api_version": "2025-03-01-preview",
     "summary_language": "English",
     "poll_interval_minutes": "30",
@@ -196,9 +196,9 @@ def bootstrap_settings_from_env() -> None:
     default value.  Once a user changes a setting through the UI the env-var
     will no longer overwrite it."""
     from backend.config import (
-        AZURE_OPENAI_ENDPOINT,
-        AZURE_OPENAI_KEY,
-        AZURE_OPENAI_MODEL,
+        LLM_ENDPOINT,
+        LLM_API_KEY,
+        LLM_MODEL,
         LLM_PROVIDER,
         POLL_INTERVAL_MINUTES,
         SUMMARY_LANGUAGE,
@@ -207,12 +207,12 @@ def bootstrap_settings_from_env() -> None:
     env_map: dict[str, str] = {}
     if LLM_PROVIDER:
         env_map["llm_provider"] = LLM_PROVIDER
-    if AZURE_OPENAI_ENDPOINT:
-        env_map["azure_openai_endpoint"] = AZURE_OPENAI_ENDPOINT
-    if AZURE_OPENAI_KEY:
-        env_map["azure_openai_key"] = AZURE_OPENAI_KEY
-    if AZURE_OPENAI_MODEL:
-        env_map["azure_openai_model"] = AZURE_OPENAI_MODEL
+    if LLM_ENDPOINT:
+        env_map["llm_endpoint"] = LLM_ENDPOINT
+    if LLM_API_KEY:
+        env_map["llm_api_key"] = LLM_API_KEY
+    if LLM_MODEL:
+        env_map["llm_model"] = LLM_MODEL
     if POLL_INTERVAL_MINUTES:
         env_map["poll_interval_minutes"] = str(POLL_INTERVAL_MINUTES)
     if SUMMARY_LANGUAGE:

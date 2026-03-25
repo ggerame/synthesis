@@ -109,9 +109,9 @@ class SummarizeRequest(BaseModel):
 
 class SettingsPayload(BaseModel):
     llm_provider: str = "azure"
-    azure_openai_endpoint: str = ""
-    azure_openai_key: str = ""
-    azure_openai_model: str = "gpt-4.1"
+    llm_endpoint: str = ""
+    llm_api_key: str = ""
+    llm_model: str = "gpt-5.4-nano"
     azure_api_version: str = "2025-03-01-preview"
     summary_language: str = "English"
     poll_interval_minutes: str = "30"

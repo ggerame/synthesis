@@ -371,7 +371,7 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
                 raise
 
             whisper_endpoint = get_setting("whisper_endpoint") or ""
-            whisper_key = get_setting("whisper_key") or get_setting("azure_openai_key") or ""
+            whisper_key = get_setting("whisper_key") or get_setting("llm_api_key") or ""
             whisper_provider = get_setting("whisper_provider") or "openai"
             whisper_model = get_setting("whisper_model") or "whisper-1"
             whisper_api_version = get_setting("whisper_api_version") or "2025-03-01-preview"

@@ -185,7 +185,7 @@ export async function renderDetail(container, videoId) {
   const deleteBtn = `<button id="delete-video" class="px-4 py-2 bg-surface-container-high text-error rounded-lg text-sm font-semibold hover:bg-error-container/20 transition-colors md-state-layer">Delete Video</button>`;
 
   container.innerHTML = `
-    <main class="w-full max-w-none px-6 py-12 sm:px-8 xl:px-12 2xl:px-16 lg:grid lg:grid-cols-12 lg:gap-16">
+    <main class="w-full max-w-none px-4 py-8 sm:px-8 sm:py-12 xl:px-12 2xl:px-16 lg:grid lg:grid-cols-12 lg:gap-16">
       <div class="lg:col-span-8 space-y-12">
         <!-- Executive Summary -->
         <section class="space-y-6">
@@ -195,7 +195,7 @@ export async function renderDetail(container, videoId) {
             <div class="h-px flex-1 bg-gradient-to-r from-transparent via-outline-variant/30 to-transparent"></div>
           </div>
           <div class="space-y-4">
-            <h1 class="text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight whitespace-normal break-words">${esc(v.title)}</h1>
+            <h1 class="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight whitespace-normal break-words">${esc(v.title)}</h1>
             <div class="flex items-center gap-3 flex-wrap">
               <span class="inline-flex items-center gap-3 rounded-full bg-surface-container-low px-3 py-2">
                 <span class="h-8 w-8 overflow-hidden rounded-full bg-surface-container-lowest">

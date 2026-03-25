@@ -71,9 +71,9 @@ All settings are managed through the **Settings page** in the UI. Environment va
 | Variable | Default | Description |
 |---|---|---|
 | `LLM_PROVIDER` | `azure` | LLM backend: `azure`, `openai`, or `openai-compatible` |
-| `AZURE_OPENAI_ENDPOINT` | — | Azure OpenAI resource endpoint URL |
-| `AZURE_OPENAI_KEY` | — | API key (works for all providers) |
-| `AZURE_OPENAI_MODEL` | `gpt-4.1` | Model deployment name |
+| `LLM_ENDPOINT` | — | API endpoint URL |
+| `LLM_API_KEY` | — | API key (works for all providers) |
+| `LLM_MODEL` | `gpt-5.4-nano` | Model name or deployment name |
 | `POLL_INTERVAL_MINUTES` | `30` | How often to check RSS feeds (minutes) |
 | `SUMMARY_LANGUAGE` | `English` | Language for generated summaries |
 | `SYNTHESIS_DATA_DIR` | `/app/data` | Data directory (database + avatar cache) |

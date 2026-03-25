@@ -144,8 +144,8 @@ def _get_client():
     from openai import AzureOpenAI, OpenAI
 
     provider = _get_provider()
-    endpoint = get_setting("azure_openai_endpoint")
-    key = get_setting("azure_openai_key")
+    endpoint = get_setting("llm_endpoint")
+    key = get_setting("llm_api_key")
 
     if provider == "azure":
         if not endpoint or not key:
@@ -516,7 +516,7 @@ def summarize_transcript(transcript: str, *, title: str = "", channel: str = "")
     error, falls back to chunked map-reduce with overlapping segments.
     """
     provider = _get_provider()
-    model = get_setting("azure_openai_model") or "gpt-4.1"
+    model = get_setting("llm_model") or "gpt-5.4-nano"
     language = get_setting("summary_language") or "English"
     tone = get_setting("system_tone") or "Analytical"
 
@@ -561,8 +561,8 @@ def check_openai_connection() -> str:
     """Return 'ok' or an error message string."""
     try:
         provider = _get_provider()
-        endpoint = get_setting("azure_openai_endpoint")
-        key = get_setting("azure_openai_key")
+        endpoint = get_setting("llm_endpoint")
+        key = get_setting("llm_api_key")
 
         if provider == "azure":
             if not endpoint or not key:

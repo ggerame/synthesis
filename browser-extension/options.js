@@ -90,9 +90,9 @@ function populateFields() {
   selectedTone = settings.system_tone || 'Analytical';
   selectedWhisperProvider = settings.whisper_provider || 'openai';
 
-  $('s-model').value = settings.azure_openai_model || '';
-  $('s-key').value = settings.azure_openai_key || '';
-  $('s-llm-endpoint').value = settings.azure_openai_endpoint || '';
+  $('s-model').value = settings.llm_model || '';
+  $('s-key').value = settings.llm_api_key || '';
+  $('s-llm-endpoint').value = settings.llm_endpoint || '';
   $('s-api-version').value = settings.azure_api_version || '2025-03-01-preview';
   $('s-lang').value = settings.summary_language || 'English';
   $('s-poll').value = settings.poll_interval_minutes || '30';
@@ -375,9 +375,9 @@ $('save-btn').addEventListener('click', async () => {
   // 2. Save backend settings
   const payload = {
     llm_provider: selectedProvider,
-    azure_openai_endpoint: $('s-llm-endpoint').value,
-    azure_openai_key: $('s-key').value,
-    azure_openai_model: $('s-model').value,
+    llm_endpoint: $('s-llm-endpoint').value,
+    llm_api_key: $('s-key').value,
+    llm_model: $('s-model').value,
     azure_api_version: $('s-api-version').value,
     summary_language: $('s-lang').value,
     poll_interval_minutes: $('s-poll').value,

@@ -63,7 +63,7 @@ async function route() {
   if (r.page === 'detail') {
     // Show loading first, then update header after fetching video
     setPageHeader('detail', '');
-    appEl.innerHTML = '<div class="flex items-center justify-center py-32"><span class="material-symbols-outlined text-primary animate-spin text-4xl">progress_activity</span></div>';
+    appEl.innerHTML = '<div class="flex items-center justify-center py-32"><span class="spinner spinner-lg text-primary"></span></div>';
     try {
       // Fetch video title for header
       const v = await api.getVideo(r.id);
@@ -74,7 +74,7 @@ async function route() {
     }
   } else if (r.page === 'settings') {
     setPageHeader('settings');
-    appEl.innerHTML = '<div class="flex items-center justify-center py-32"><span class="material-symbols-outlined text-primary animate-spin text-4xl">progress_activity</span></div>';
+    appEl.innerHTML = '<div class="flex items-center justify-center py-32"><span class="spinner spinner-lg text-primary"></span></div>';
     try {
       await renderSettings(appEl);
     } catch (err) {
@@ -82,7 +82,7 @@ async function route() {
     }
   } else {
     setPageHeader('feed');
-    appEl.innerHTML = '<div class="flex items-center justify-center py-32"><span class="material-symbols-outlined text-primary animate-spin text-4xl">progress_activity</span></div>';
+    appEl.innerHTML = '<div class="flex items-center justify-center py-32"><span class="spinner spinner-lg text-primary"></span></div>';
     try {
       await renderFeed(appEl);
     } catch (err) {

@@ -142,7 +142,7 @@ export async function renderDetail(container, videoId) {
         return `
           <div class="bg-surface-container-low rounded-xl p-6 border border-primary/20 space-y-3">
             <div class="flex items-center gap-3 text-primary">
-              <span class="material-symbols-outlined animate-spin">progress_activity</span>
+              <span class="spinner spinner-sm"></span>
               <span class="text-sm font-bold uppercase tracking-widest">${copy.label}</span>
             </div>
             <p class="text-on-surface-variant leading-relaxed">${copy.detail}</p>

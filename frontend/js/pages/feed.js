@@ -147,7 +147,7 @@ function videoCard(v) {
           ${isProcessing ? '<div class="absolute inset-0 bg-black/20"></div>' : ''}
           <div class="absolute top-4 left-4">${badge}</div>
           ${v.duration_seconds ? `<div class="absolute bottom-4 left-4 px-2 py-1 rounded-md bg-black/75 text-white text-xs font-mono font-semibold">${fmtDuration(v.duration_seconds)}</div>` : ''}
-          ${isProcessing ? '<div class="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-surface-container-lowest/80 backdrop-blur-md flex items-center justify-center"><span class="material-symbols-outlined text-primary animate-spin">progress_activity</span></div>' : ''}
+          ${isProcessing ? '<div class="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-surface-container-lowest/80 backdrop-blur-md flex items-center justify-center"><span class="spinner spinner-sm text-primary"></span></div>' : ''}
         </div>
         <div class="p-6">
           <div class="flex items-center gap-2 mb-3">

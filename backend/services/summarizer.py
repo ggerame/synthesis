@@ -39,9 +39,15 @@ class SummaryChapter(BaseModel):
     @classmethod
     def valid_timestamp(cls, value: str) -> str:
         value = value.strip()
-        if not re.fullmatch(r"\d{2,}:[0-5]\d:[0-5]\d", value):
+        parts = value.split(":")
+        if len(parts) == 2:
+            parts.insert(0, "0")
+        if len(parts) != 3 or not all(re.fullmatch(r"\d+", part) for part in parts):
             raise ValueError("must use HH:MM:SS")
-        return value
+        hours, minutes, seconds = map(int, parts)
+        if minutes > 59 or seconds > 59:
+            raise ValueError("must use HH:MM:SS")
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
 class SummaryPayload(BaseModel):
@@ -65,26 +71,15 @@ class SummaryPayload(BaseModel):
     @field_validator("key_points")
     @classmethod
     def non_empty_points(cls, values: list[str]) -> list[str]:
-        cleaned = [value.strip() for value in values]
-        if not 6 <= len(cleaned) <= 10 or any(not value for value in cleaned):
-            raise ValueError("must contain 6-10 non-empty key points")
-        return cleaned
-
-    @field_validator("chapters")
-    @classmethod
-    def valid_chapter_count(cls, values: list[SummaryChapter]) -> list[SummaryChapter]:
-        if not 4 <= len(values) <= 8:
-            raise ValueError("must contain 4-8 chapters")
-        return values
+        return [value.strip() for value in values if value.strip()]
 
     @model_validator(mode="after")
     def chronological_chapters(self) -> SummaryPayload:
-        timestamps = []
-        for chapter in self.chapters:
+        def timestamp(chapter: SummaryChapter) -> int:
             hours, minutes, seconds = map(int, chapter.start_time.split(":"))
-            timestamps.append(hours * 3600 + minutes * 60 + seconds)
-        if timestamps != sorted(timestamps):
-            raise ValueError("chapter timestamps must be chronological")
+            return hours * 3600 + minutes * 60 + seconds
+
+        self.chapters.sort(key=timestamp)
         return self
 
 
@@ -467,7 +462,11 @@ def _validate_summary_payload(payload: str | dict | SummaryPayload) -> dict:
     try:
         return SummaryPayload.model_validate(payload).model_dump()
     except ValidationError as exc:
-        raise RuntimeError(f"LLM response did not match the summary schema: {exc}") from exc
+        details = "; ".join(
+            f"{'.'.join(map(str, error['loc']))}: {error['msg']}"
+            for error in exc.errors(include_url=False, include_input=False)
+        )
+        raise RuntimeError(f"LLM response did not match the summary schema: {details}") from exc
 
 
 def _aggregate_usage(usages: list[dict[str, int]]) -> dict[str, int]:

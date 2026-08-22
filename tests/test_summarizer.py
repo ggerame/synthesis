@@ -44,17 +44,23 @@ class PromptContractTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "summary schema"):
             summarizer._validate_summary_payload(payload)
 
-    def test_payload_validation_rejects_missing_takeaways(self) -> None:
+    def test_payload_validation_accepts_any_useful_takeaway_count(self) -> None:
         payload = valid_payload()
-        payload["key_points"] = ["Only one"]
-        with self.assertRaisesRegex(RuntimeError, "6-10"):
-            summarizer._validate_summary_payload(payload)
+        payload["key_points"] = ["Only one", ""]
+        parsed = summarizer._validate_summary_payload(payload)
+        self.assertEqual(parsed["key_points"], ["Only one"])
 
-    def test_payload_validation_rejects_out_of_order_chapters(self) -> None:
+    def test_payload_validation_sorts_out_of_order_chapters(self) -> None:
         payload = valid_payload()
         payload["chapters"][0]["start_time"] = "00:05:00"
-        with self.assertRaisesRegex(RuntimeError, "chronological"):
-            summarizer._validate_summary_payload(payload)
+        parsed = summarizer._validate_summary_payload(payload)
+        self.assertEqual(parsed["chapters"][-1]["start_time"], "00:05:00")
+
+    def test_payload_validation_normalizes_short_timestamp(self) -> None:
+        payload = valid_payload()
+        payload["chapters"][0]["start_time"] = "1:05"
+        parsed = summarizer._validate_summary_payload(payload)
+        self.assertEqual(parsed["chapters"][1]["start_time"], "00:01:05")
 
 
 class ProviderTests(unittest.TestCase):

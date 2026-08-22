@@ -1,7 +1,22 @@
+FROM node:22-alpine AS frontend-base
+
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/index.html frontend/tsconfig.json frontend/vite.config.ts ./
+COPY frontend/src/ src/
+COPY frontend/assets/ assets/
+
+FROM frontend-base AS frontend-test
+RUN npm test
+
+FROM frontend-test AS frontend-build
+RUN npm run build
+
 FROM python:3.12-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl && \
+    apt-get install -y --no-install-recommends ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -9,13 +24,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download Tailwind CSS standalone CLI and build production CSS
-COPY tailwind.config.js .
-COPY frontend/ frontend/
-RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64 && \
-    chmod +x tailwindcss-linux-x64 && \
-    ./tailwindcss-linux-x64 -i frontend/css/input.css -o frontend/css/styles.css --minify && \
-    rm tailwindcss-linux-x64
+COPY --from=frontend-build /frontend/dist frontend/
 
 COPY backend/ backend/
 

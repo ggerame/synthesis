@@ -21,6 +21,7 @@ from backend.database import (
     init_db,
 )
 from backend.models import SettingsPayload, ModelPricingOut, ModelPricingIn
+from backend.services.feed_poller import quiesce_processing, recover_interrupted_jobs, wake_processing_worker
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -33,7 +34,11 @@ def get_settings():
 
 @router.put("", response_model=SettingsPayload)
 def put_settings(body: SettingsPayload):
-    update_settings(body.model_dump())
+    data = body.model_dump()
+    # Older extension builds do not send this newly added preference flag.
+    if "language_preference_set" not in body.model_fields_set:
+        data.pop("language_preference_set")
+    update_settings(data)
     data = get_all_settings()
     return SettingsPayload(**data)
 
@@ -129,16 +134,22 @@ async def import_database(file: UploadFile = File(...)):
                 detail=f"Database is missing required tables: {', '.join(sorted(missing))}",
             )
 
-        # Replace the live database
-        db_path = DATABASE_PATH
-        backup_path = db_path.with_suffix(".db.bak")
-        if db_path.exists():
-            shutil.copy2(str(db_path), str(backup_path))
-
-        shutil.copy2(tmp.name, str(db_path))
-
-        # Ensure schema and defaults are present on the imported database
-        init_db()
+        # Wait for the current job so no connection writes through the replace.
+        with quiesce_processing():
+            db_path = DATABASE_PATH
+            backup_path = db_path.with_suffix(".db.bak")
+            if db_path.exists():
+                src = sqlite3.connect(str(db_path))
+                dst = sqlite3.connect(str(backup_path))
+                src.backup(dst)
+                dst.close()
+                src.close()
+            for suffix in ("-wal", "-shm"):
+                Path(str(db_path) + suffix).unlink(missing_ok=True)
+            shutil.copy2(tmp.name, str(db_path))
+            init_db()
+            recover_interrupted_jobs()
+        wake_processing_worker()
 
         return {"ok": True, "detail": "Database imported successfully."}
     finally:

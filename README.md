@@ -6,7 +6,7 @@ New videos are detected via RSS feed polling, subtitles are analyzed by the LLM 
 
 A companion [browser extension](#browser-extension) for Chrome and Firefox brings the same summaries and chapters directly into YouTube watch pages.
 
-> **Note on the frontend** — The frontend is built in plain vanilla JavaScript and Tailwind CSS. It was vibe-coded from the ground up by someone who genuinely hates frontend frameworks.
+> **Frontend** — A responsive React and TypeScript dashboard with accessible, reduced-motion-aware animations and seven interface languages.
 
 ## Features
 
@@ -17,6 +17,7 @@ A companion [browser extension](#browser-extension) for Chrome and Firefox bring
 - **Whisper fallback** — When subtitles aren't available, optionally transcribe audio via the Whisper API
 - **Cost tracking** — Token counts and estimated USD cost per summary, powered by a configurable model pricing table
 - **Multi-language output** — Generate summaries in English, German, Italian, French, Spanish, Japanese, or Portuguese
+- **Durable processing queue** — Interrupted jobs resume after restart and transient failures retry with bounded backoff
 - **Configurable tone** — Analytical, Creative, or Minimalist system prompts
 - **Long transcript handling** — Automatic chunked map-reduce summarization for videos that exceed the context window
 - **Database export/import** — Full SQLite backup and restore from the Settings page
@@ -73,7 +74,7 @@ All settings are managed through the **Settings page** in the UI. Environment va
 | `LLM_PROVIDER` | `azure` | LLM backend: `azure`, `openai`, or `openai-compatible` |
 | `LLM_ENDPOINT` | — | API endpoint URL |
 | `LLM_API_KEY` | — | API key (works for all providers) |
-| `LLM_MODEL` | `gpt-5.4-nano` | Model name or deployment name |
+| `LLM_MODEL` | `gpt-5.6-luna` | Model name or Azure deployment name |
 | `POLL_INTERVAL_MINUTES` | `30` | How often to check RSS feeds (minutes) |
 | `SUMMARY_LANGUAGE` | `English` | Language for generated summaries |
 | `SYNTHESIS_DATA_DIR` | `/app/data` | Data directory (database + avatar cache) |
@@ -87,7 +88,6 @@ Beyond the env vars above, the Settings page exposes:
 - **System tone** (Analytical, Creative, Minimalist)
 - **Max video age** — only process videos published within the last N days (default: 30)
 - **Whisper fallback** — enable/disable, with its own provider, model, endpoint, and API key
-- **Subtitle language** preference
 - **Model pricing table** — add/edit/delete pricing rules for token cost estimation
 - **Database export & import**
 
@@ -119,21 +119,27 @@ The **content script** runs on `www.youtube.com`, listens for YouTube's `yt-navi
 
 ```bash
 cd synthesis
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
 ```
 
 You'll also need `ffmpeg` and `yt-dlp` installed on your system.
 
 ```bash
 export SYNTHESIS_DATA_DIR=./data
-uvicorn backend.main:app --reload
+.venv/bin/uvicorn backend.main:app --reload
 ```
 
-> Tailwind CSS is compiled at Docker build time using the standalone CLI. During local dev, the existing `frontend/css/styles.css` is used as-is. If you modify Tailwind classes, rebuild with:
-> ```bash
-> npx tailwindcss -i frontend/css/input.css -o frontend/css/styles.css --watch
-> ```
+Node is never required on the host. Run the Vite development server in Docker:
+
+```bash
+docker run --rm -it -p 5173:5173 \
+  --add-host host.docker.internal:host-gateway \
+  -v "$PWD/frontend:/frontend" -v /frontend/node_modules \
+  -w /frontend node:22-alpine sh -c "npm ci && npm run dev"
+```
+
+Run backend tests with `.venv/bin/python -m unittest discover -s tests`. Run frontend checks with `docker build --target frontend-build .`.
 
 Open [http://localhost:8000](http://localhost:8000).
 
@@ -142,7 +148,7 @@ Open [http://localhost:8000](http://localhost:8000).
 ```
 ┌──────────────────────────────────────────────────┐
 │                    Browser                       │
-│   Vanilla JS SPA + Tailwind CSS                  │
+│   React + TypeScript SPA                         │
 │   Pages: Feed · Video Detail · Settings          │
 └─────────────────────┬────────────────────────────┘
                       │ REST API
@@ -151,8 +157,8 @@ Open [http://localhost:8000](http://localhost:8000).
 │   Routers: videos · channels · settings · system │
 │   Static files served at /                       │
 ├──────────────────────────────────────────────────┤
-│            APScheduler (background)              │
-│   RSS polling → subtitle download → LLM summary  │
+│  APScheduler + durable single worker             │
+│   RSS polling → SQLite queue → LLM summary       │
 ├──────────────────────────────────────────────────┤
 │   Services:                                      │
 │   feed_poller · summarizer · subtitles ·         │
@@ -217,7 +223,7 @@ Everything runs as a single process inside one Docker container. The SQLite data
 | Transcription | yt-dlp, ffmpeg, Whisper API (optional) |
 | Token counting | tiktoken |
 | XML parsing | defusedxml |
-| Frontend | Vanilla JavaScript, Tailwind CSS v3, Manrope font, Material Symbols icons |
+| Frontend | React, TypeScript, Vite, native CSS |
 | Browser extension | Manifest V3 (Chrome + Firefox), plain JS/CSS |
 | Database | SQLite with WAL mode |
 | Deployment | Docker (single container), docker compose |

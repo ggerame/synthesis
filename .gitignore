@@ -25,8 +25,9 @@ synthesis.db
 *.db-shm
 *.db-wal
 
-# Tailwind CSS build output
-frontend/css/styles.css
+# Frontend build output
+frontend/node_modules/
+frontend/dist/
 
 # Browser extension build output
 browser-extension/dist/

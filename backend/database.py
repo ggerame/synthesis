@@ -33,7 +33,10 @@ CREATE TABLE IF NOT EXISTS videos (
     is_read         INTEGER NOT NULL DEFAULT 0,
     duration_seconds INTEGER,
     processing_status TEXT  NOT NULL DEFAULT 'ready',
-    processing_error  TEXT  NOT NULL DEFAULT ''
+    processing_error  TEXT  NOT NULL DEFAULT '',
+    processing_attempts INTEGER NOT NULL DEFAULT 0,
+    next_retry_at TEXT NOT NULL DEFAULT '',
+    processing_updated_at TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS summaries (
@@ -44,6 +47,7 @@ CREATE TABLE IF NOT EXISTS summaries (
     language        TEXT    NOT NULL DEFAULT 'English',
     primary_topic   TEXT    NOT NULL DEFAULT '',
     llm_model       TEXT    NOT NULL DEFAULT '',
+    prompt_version  TEXT    NOT NULL DEFAULT '',
     prompt_tokens   INTEGER NOT NULL DEFAULT 0,
     completion_tokens INTEGER NOT NULL DEFAULT 0,
     total_tokens    INTEGER NOT NULL DEFAULT 0,
@@ -80,11 +84,10 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "llm_provider": "azure",
     "llm_endpoint": "",
     "llm_api_key": "",
-    "llm_model": "gpt-5.4-nano",
+    "llm_model": "gpt-5.6-luna",
     "azure_api_version": "2025-03-01-preview",
     "summary_language": "English",
     "poll_interval_minutes": "30",
-    "subtitle_language": "en",
     "max_video_age_days": "30",
     "whisper_fallback": "false",
     "whisper_provider": "openai",
@@ -93,18 +96,24 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "whisper_model": "whisper-1",
     "whisper_api_version": "2025-03-01-preview",
     "system_tone": "Analytical",
+    "language_preference_set": "false",
 }
 
-# Default model pricing (input, cached_input, output) per 1M tokens
+SUPPORTED_LANGUAGES = ("English", "German", "Italian", "French", "Spanish", "Japanese", "Portuguese")
+
+# Current OpenAI text pricing (input, cached input, output) per 1M tokens.
 DEFAULT_MODEL_PRICING: dict[str, tuple[float, float | None, float]] = {
+    "gpt-5.6-sol": (4.00, 0.40, 20.00),
+    "gpt-5.6-terra": (2.00, 0.20, 12.00),
+    "gpt-5.6-luna": (0.20, 0.02, 1.20),
+}
+MODEL_PRICING_DEFAULTS_VERSION = "2026-08-22"
+
+# Used only to remove untouched defaults shipped by older Synthesis versions.
+_LEGACY_DEFAULT_MODEL_PRICING: dict[str, tuple[float, float | None, float]] = {
     "gpt-5.4": (2.50, 0.25, 15.00),
     "gpt-5.4-mini": (0.75, 0.075, 4.50),
     "gpt-5.4-nano": (0.20, 0.02, 1.25),
-    "gpt-5-mini": (0.25, 0.025, 2.00),
-    "gpt-5-nano": (0.05, 0.005, 0.40),
-    "gpt-4.1": (2.00, 0.50, 8.00),
-    "gpt-4.1-mini": (0.40, 0.10, 1.60),
-    "gpt-4.1-nano": (0.10, 0.025, 0.40),
 }
 
 
@@ -113,15 +122,37 @@ def _db_path() -> Path:
 
 
 def _seed_default_model_pricing(conn: sqlite3.Connection) -> None:
-    """Seed default model pricing if table is empty."""
-    count = conn.execute("SELECT COUNT(*) as cnt FROM model_pricing").fetchone()
-    if count and count[0] == 0:
-        for model_name, (input_price, cached_input_price, output_price) in DEFAULT_MODEL_PRICING.items():
-            conn.execute(
-                "INSERT OR IGNORE INTO model_pricing (model_name, input_price_per_1m, cached_input_price_per_1m, output_price_per_1m) "
-                "VALUES (?, ?, ?, ?)",
-                (model_name, input_price, cached_input_price, output_price),
-            )
+    """Migrate shipped prices once while preserving user-managed entries."""
+    version = conn.execute(
+        "SELECT value FROM settings WHERE key='model_pricing_defaults_version'"
+    ).fetchone()
+    if version and version[0] == MODEL_PRICING_DEFAULTS_VERSION:
+        return
+
+    selected = conn.execute("SELECT value FROM settings WHERE key='llm_model'").fetchone()
+    selected_model = selected[0].strip().lower() if selected else ""
+    for model_name, rates in _LEGACY_DEFAULT_MODEL_PRICING.items():
+        if model_name == selected_model:
+            continue
+        conn.execute(
+            "DELETE FROM model_pricing WHERE LOWER(model_name)=? "
+            "AND input_price_per_1m=? AND cached_input_price_per_1m=? "
+            "AND output_price_per_1m=?",
+            (model_name, *rates),
+        )
+
+    for model_name, (input_price, cached_input_price, output_price) in DEFAULT_MODEL_PRICING.items():
+        conn.execute(
+            "INSERT OR IGNORE INTO model_pricing "
+            "(model_name, input_price_per_1m, cached_input_price_per_1m, output_price_per_1m) "
+            "VALUES (?, ?, ?, ?)",
+            (model_name, input_price, cached_input_price, output_price),
+        )
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES ('model_pricing_defaults_version', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (MODEL_PRICING_DEFAULTS_VERSION,),
+    )
 
 
 def init_db() -> None:
@@ -130,11 +161,40 @@ def init_db() -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path))
     conn.executescript(SCHEMA_SQL)
+    existing_language = conn.execute(
+        "SELECT value FROM settings WHERE key='summary_language'"
+    ).fetchone()
+    had_language_preference = conn.execute(
+        "SELECT 1 FROM settings WHERE key='language_preference_set'"
+    ).fetchone() is not None
+
+    # CREATE TABLE does not add columns to existing SQLite databases.
+    video_columns = {row[1] for row in conn.execute("PRAGMA table_info(videos)")}
+    for name, declaration in (
+        ("processing_attempts", "INTEGER NOT NULL DEFAULT 0"),
+        ("next_retry_at", "TEXT NOT NULL DEFAULT ''"),
+        ("processing_updated_at", "TEXT NOT NULL DEFAULT ''"),
+    ):
+        if name not in video_columns:
+            conn.execute(f"ALTER TABLE videos ADD COLUMN {name} {declaration}")
+    summary_columns = {row[1] for row in conn.execute("PRAGMA table_info(summaries)")}
+    if "prompt_version" not in summary_columns:
+        conn.execute("ALTER TABLE summaries ADD COLUMN prompt_version TEXT NOT NULL DEFAULT ''")
     # Seed default settings if they don't exist yet
     for key, value in DEFAULT_SETTINGS.items():
         conn.execute(
             "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
             (key, value),
+        )
+    conn.execute("DELETE FROM settings WHERE key='subtitle_language'")
+    language = existing_language[0] if existing_language else "English"
+    if language not in SUPPORTED_LANGUAGES:
+        language = "English"
+        conn.execute("UPDATE settings SET value=? WHERE key='summary_language'", (language,))
+    if not had_language_preference:
+        conn.execute(
+            "UPDATE settings SET value=? WHERE key='language_preference_set'",
+            ("true" if language != "English" else "false",),
         )
     _seed_default_model_pricing(conn)
     conn.commit()

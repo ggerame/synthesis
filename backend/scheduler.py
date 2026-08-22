@@ -33,6 +33,9 @@ def start_scheduler() -> None:
         id="feed_poll",
         name="Poll RSS feeds and summarize new videos",
         replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=60,
     )
     _scheduler.start()
     logger.info("Scheduler started — polling every %d minutes", minutes)

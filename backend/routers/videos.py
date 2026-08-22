@@ -55,10 +55,11 @@ def list_videos(
             "ORDER BY "
             "CASE v.processing_status "
             "WHEN 'downloading' THEN 0 "
-            "WHEN 'summarizing' THEN 1 "
-            "WHEN 'queued' THEN 2 "
-            "WHEN 'ready' THEN 3 "
-            f"ELSE 4 END, "
+            "WHEN 'transcribing' THEN 1 "
+            "WHEN 'summarizing' THEN 2 "
+            "WHEN 'queued' THEN 3 "
+            "WHEN 'ready' THEN 4 "
+            f"ELSE 5 END, "
             f"s.created_at {dir_sql}, v.published_at {dir_sql}"
         )
     else:
@@ -66,10 +67,11 @@ def list_videos(
             "ORDER BY "
             "CASE v.processing_status "
             "WHEN 'downloading' THEN 0 "
-            "WHEN 'summarizing' THEN 1 "
-            "WHEN 'queued' THEN 2 "
-            "WHEN 'ready' THEN 3 "
-            f"ELSE 4 END, "
+            "WHEN 'transcribing' THEN 1 "
+            "WHEN 'summarizing' THEN 2 "
+            "WHEN 'queued' THEN 3 "
+            "WHEN 'ready' THEN 4 "
+            f"ELSE 5 END, "
             f"v.published_at {dir_sql}"
         )
 
@@ -112,6 +114,9 @@ def list_videos(
             llm_cost_usd=float(r["llm_cost_usd"]) if r["llm_cost_usd"] is not None else None,
             processing_status=r["processing_status"] or "ready",
             processing_error=r["processing_error"] or "",
+            processing_attempts=int(r["processing_attempts"] or 0),
+            next_retry_at=r["next_retry_at"] or "",
+            processing_updated_at=r["processing_updated_at"] or "",
         )
         for r in rows
     ]
@@ -153,6 +158,7 @@ def get_video(video_id: str):
             language=summary_row["language"],
             primary_topic=summary_row["primary_topic"],
             llm_model=summary_row["llm_model"] or "",
+            prompt_version=summary_row["prompt_version"] or "",
             prompt_tokens=int(summary_row["prompt_tokens"] or 0),
             completion_tokens=int(summary_row["completion_tokens"] or 0),
             total_tokens=int(summary_row["total_tokens"] or 0),
@@ -187,6 +193,9 @@ def get_video(video_id: str):
         channel_avatar_url=row["channel_avatar_url"] or "",
         processing_status=row["processing_status"] or "ready",
         processing_error=row["processing_error"] or "",
+        processing_attempts=int(row["processing_attempts"] or 0),
+        next_retry_at=row["next_retry_at"] or "",
+        processing_updated_at=row["processing_updated_at"] or "",
         summary=summary,
         chapters=chapters,
     )

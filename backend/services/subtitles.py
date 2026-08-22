@@ -12,6 +12,11 @@ from typing import List
 
 logger = logging.getLogger(__name__)
 
+METADATA_TIMEOUT_SECONDS = 120
+SUBTITLE_TIMEOUT_SECONDS = 300
+AUDIO_TIMEOUT_SECONDS = 3600
+WHISPER_TIMEOUT_SECONDS = 3600
+
 
 @dataclass
 class SubtitleLine:
@@ -64,10 +69,14 @@ def format_transcript(lines: List[SubtitleLine], max_chars: int = 2_000_000) -> 
 
 
 def fetch_video_metadata(url: str, downloader: str = "yt-dlp") -> dict:
-    proc = subprocess.run(
-        [downloader, "--skip-download", "--no-warnings", "--dump-json", url],
-        capture_output=True, text=True, check=False,
-    )
+    try:
+        proc = subprocess.run(
+            [downloader, "--skip-download", "--no-warnings", "--dump-json", url],
+            capture_output=True, text=True, check=False,
+            timeout=METADATA_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("Metadata fetch timed out") from exc
     if proc.returncode != 0:
         raise RuntimeError(f"Metadata fetch failed (code {proc.returncode}): {proc.stderr[:500]}")
     for line in proc.stdout.splitlines():
@@ -82,30 +91,32 @@ def fetch_video_metadata(url: str, downloader: str = "yt-dlp") -> dict:
     raise RuntimeError("Unable to parse video metadata")
 
 
-def _extract_default_language(metadata: dict | None) -> str | None:
+def _source_languages(metadata: dict | None) -> list[str]:
     if not metadata:
-        return None
+        return []
+    languages: list[str] = []
+
+    def add(value: object) -> None:
+        language = value.strip() if isinstance(value, str) else ""
+        if language and language != "live_chat" and language not in languages:
+            languages.append(language)
+
     for field in ("language", "original_language", "audio_language", "release_language"):
-        val = metadata.get(field)
-        if isinstance(val, str) and val.strip():
-            return val.strip()
-    subtitles = metadata.get("subtitles")
-    if isinstance(subtitles, dict) and subtitles:
-        return next(iter(subtitles.keys()))
-    auto = metadata.get("automatic_captions")
-    if isinstance(auto, dict) and auto:
-        return next(iter(auto.keys()))
-    return None
+        add(metadata.get(field))
+    for field in ("subtitles", "automatic_captions"):
+        tracks = metadata.get(field)
+        if isinstance(tracks, dict):
+            add(next(iter(tracks), None))
+    return languages
 
 
 def download_subtitles(
     url: str,
     *,
-    sub_lang: str = "en",
     downloader: str = "yt-dlp",
     workdir: Path,
     video_metadata: dict | None = None,
-) -> tuple[Path, str]:
+) -> Path:
     """Download subtitles with layered fallbacks."""
 
     def build_cmd(lang: str, auto: bool) -> list[str]:
@@ -123,25 +134,28 @@ def download_subtitles(
                 return p
         return None
 
-    fallback = _extract_default_language(video_metadata)
-    langs = []
-    for lang in (sub_lang, fallback):
-        if lang and lang not in langs:
-            langs.append(lang)
+    langs = _source_languages(video_metadata)
     if not langs:
-        raise RuntimeError("No subtitle languages available.")
+        raise RuntimeError("Could not detect an available subtitle language.")
 
     errors: list[str] = []
     for lang in langs:
         for auto in (False, True):
             before = snapshot()
-            proc = subprocess.run(build_cmd(lang, auto), cwd=workdir, capture_output=True, text=True, check=False)
+            try:
+                proc = subprocess.run(
+                    build_cmd(lang, auto), cwd=workdir, capture_output=True,
+                    text=True, check=False, timeout=SUBTITLE_TIMEOUT_SECONDS,
+                )
+            except subprocess.TimeoutExpired:
+                errors.append(f"{'auto' if auto else 'official'} {lang}: timed out")
+                continue
             if proc.returncode != 0:
                 errors.append(f"{'auto' if auto else 'official'} {lang}: exit {proc.returncode}")
                 continue
             found = find_new(before)
             if found:
-                return found, lang
+                return found
             errors.append(f"{'auto' if auto else 'official'} {lang}: no SRT produced")
 
     raise RuntimeError("Subtitle download failed: " + "; ".join(errors))
@@ -182,19 +196,23 @@ def download_audio(
     workdir: Path,
 ) -> Path:
     """Download audio track as an m4a/opus file using yt-dlp."""
-    proc = subprocess.run(
-        [
-            downloader,
-            "--no-warnings",
-            "-f", "bestaudio[ext=m4a]/bestaudio",
-            "-o", "%(id)s.%(ext)s",
-            url,
-        ],
-        cwd=workdir,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            [
+                downloader,
+                "--no-warnings",
+                "-f", "bestaudio[ext=m4a]/bestaudio",
+                "-o", "%(id)s.%(ext)s",
+                url,
+            ],
+            cwd=workdir,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=AUDIO_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("Audio download timed out") from exc
     if proc.returncode != 0:
         raise RuntimeError(f"Audio download failed (code {proc.returncode}): {proc.stderr[:500]}")
 
@@ -214,7 +232,6 @@ def transcribe_with_whisper(
     api_key: str,
     model: str = "whisper-1",
     api_version: str = "2025-03-01-preview",
-    language: str | None = None,
 ) -> str:
     """Send an audio file to a Whisper-compatible API and return the transcript text."""
     from openai import AzureOpenAI, OpenAI
@@ -226,20 +243,25 @@ def transcribe_with_whisper(
             azure_endpoint=endpoint,
             api_key=api_key,
             api_version=api_version,
+            timeout=WHISPER_TIMEOUT_SECONDS,
+            max_retries=0,
         )
     else:
         if endpoint:
             base_url = endpoint.rstrip("/")
             if not base_url.endswith("/v1"):
                 base_url += "/v1"
-            client = OpenAI(base_url=base_url, api_key=api_key)
+            client = OpenAI(
+                base_url=base_url, api_key=api_key,
+                timeout=WHISPER_TIMEOUT_SECONDS, max_retries=0,
+            )
         else:
-            client = OpenAI(api_key=api_key)
+            client = OpenAI(
+                api_key=api_key, timeout=WHISPER_TIMEOUT_SECONDS, max_retries=0,
+            )
 
     with open(audio_path, "rb") as f:
         kwargs: dict = {"model": model, "file": f, "response_format": "text"}
-        if language:
-            kwargs["language"] = language
         transcript = client.audio.transcriptions.create(**kwargs)
 
     text = transcript if isinstance(transcript, str) else str(transcript)

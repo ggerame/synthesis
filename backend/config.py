@@ -11,6 +11,6 @@ DATABASE_PATH = DATA_DIR / "synthesis.db"
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "azure")
 LLM_ENDPOINT = os.environ.get("LLM_ENDPOINT", "")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
-LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-5.4-nano")
+LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-5.6-luna")
 POLL_INTERVAL_MINUTES = int(os.environ.get("POLL_INTERVAL_MINUTES", "30"))
 SUMMARY_LANGUAGE = os.environ.get("SUMMARY_LANGUAGE", "English")

@@ -6,12 +6,11 @@ import json
 import logging
 import tempfile
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from xml.etree.ElementTree import ParseError
 
 from defusedxml.ElementTree import fromstring as safe_xml_fromstring
 from pathlib import Path
-from urllib.error import URLError
 from urllib.request import Request, urlopen
 import re
 
@@ -30,6 +29,16 @@ from backend.services.subtitles import (
 from backend.services.summarizer import summarize_transcript
 
 logger = logging.getLogger(__name__)
+
+MAX_PROCESSING_ATTEMPTS = 3
+RETRY_DELAYS_SECONDS = (60, 300)
+ACTIVE_STATUSES = ("downloading", "transcribing", "summarizing")
+
+_worker_thread: threading.Thread | None = None
+_worker_stop = threading.Event()
+_worker_wake = threading.Event()
+_processing_lock = threading.RLock()
+_poll_lock = threading.Lock()
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
 YT_NS = "http://www.youtube.com/xml/schemas/2015"
@@ -66,39 +75,149 @@ def _cleanup_hidden_channel_if_empty(channel_id: str) -> None:
 def _set_video_processing_state(video_id: str, status: str, error: str = "") -> None:
     with get_db() as conn:
         conn.execute(
-            "UPDATE videos SET processing_status=?, processing_error=? WHERE video_id=?",
-            (status, error, video_id),
+            "UPDATE videos SET processing_status=?, processing_error=?, "
+            "processing_updated_at=? WHERE video_id=?",
+            (status, error[:1000], _utc_now(), video_id),
         )
 
 
 def _start_background_video_processing(video_jobs: list[tuple[str, str]]) -> None:
-    if not video_jobs:
+    if video_jobs:
+        _worker_wake.set()
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _claim_next_video() -> tuple[str, str] | None:
+    now = _utc_now()
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT video_id, url FROM videos "
+            "WHERE processing_status='queued' AND processing_attempts < ? "
+            "AND (next_retry_at='' OR next_retry_at <= ?) "
+            "ORDER BY discovered_at, id LIMIT 1",
+            (MAX_PROCESSING_ATTEMPTS, now),
+        ).fetchone()
+        if not row:
+            return None
+        updated = conn.execute(
+            "UPDATE videos SET processing_status='downloading', "
+            "processing_attempts=processing_attempts+1, processing_updated_at=? "
+            "WHERE video_id=? AND processing_status='queued'",
+            (now, row["video_id"]),
+        )
+        if updated.rowcount != 1:
+            return None
+        return row["video_id"], row["url"]
+
+
+def recover_interrupted_jobs() -> None:
+    now = _utc_now()
+    with get_db() as conn:
+        placeholders = ",".join("?" for _ in ACTIVE_STATUSES)
+        conn.execute(
+            f"UPDATE videos SET "
+            "processing_status=CASE WHEN processing_attempts >= ? THEN 'failed' ELSE 'queued' END, "
+            "processing_error=CASE WHEN processing_attempts >= ? "
+            "THEN 'Processing interrupted after the final attempt.' "
+            "ELSE 'Processing interrupted; queued again.' END, "
+            "next_retry_at='', processing_updated_at=? "
+            f"WHERE processing_status IN ({placeholders})",
+            (MAX_PROCESSING_ATTEMPTS, MAX_PROCESSING_ATTEMPTS, now, *ACTIVE_STATUSES),
+        )
+        conn.execute(
+            "UPDATE videos SET processing_status='failed', next_retry_at='', "
+            "processing_error=CASE WHEN processing_error='' THEN 'Processing exhausted all attempts.' "
+            "ELSE processing_error END, processing_updated_at=? "
+            "WHERE processing_status='queued' AND processing_attempts >= ?",
+            (now, MAX_PROCESSING_ATTEMPTS),
+        )
+
+
+def _record_processing_failure(video_id: str, exc: Exception) -> None:
+    message = str(exc).strip()[:1000] or exc.__class__.__name__
+    now = datetime.now(timezone.utc)
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT processing_attempts FROM videos WHERE video_id=?", (video_id,)
+        ).fetchone()
+        if not row:
+            return
+        attempts = int(row["processing_attempts"] or 0)
+        if attempts >= MAX_PROCESSING_ATTEMPTS:
+            conn.execute(
+                "UPDATE videos SET processing_status='failed', processing_error=?, "
+                "next_retry_at='', processing_updated_at=? WHERE video_id=?",
+                (message, now.isoformat(), video_id),
+            )
+            return
+        retry_at = now + timedelta(seconds=RETRY_DELAYS_SECONDS[max(0, attempts - 1)])
+        conn.execute(
+            "UPDATE videos SET processing_status='queued', processing_error=?, "
+            "next_retry_at=?, processing_updated_at=? WHERE video_id=?",
+            (message, retry_at.isoformat(), now.isoformat(), video_id),
+        )
+
+
+def _worker_loop() -> None:
+    while not _worker_stop.is_set():
+        job = None
+        try:
+            with _processing_lock:
+                job = _claim_next_video()
+                if job:
+                    video_id, video_url = job
+                    try:
+                        _run_video_processing(video_id, video_url)
+                    except Exception as exc:
+                        logger.error("Summarization failed for %s: %s", video_id, exc)
+                        _record_processing_failure(video_id, exc)
+        except Exception:
+            logger.exception("Processing worker loop failed; retrying")
+        if not job:
+            _worker_wake.wait(1)
+            _worker_wake.clear()
+
+
+def start_processing_worker() -> None:
+    global _worker_thread
+    recover_interrupted_jobs()
+    if _worker_thread and _worker_thread.is_alive():
+        _worker_wake.set()
         return
+    _worker_stop.clear()
+    _worker_thread = threading.Thread(target=_worker_loop, name="synthesis-worker", daemon=True)
+    _worker_thread.start()
+    _worker_wake.set()
 
-    def runner() -> None:
-        for video_id, video_url in video_jobs:
-            try:
-                _run_video_processing(video_id, video_url)
-            except Exception as exc:
-                logger.error("Summarization failed for %s: %s", video_id, exc)
 
-    threading.Thread(target=runner, daemon=True).start()
+def stop_processing_worker() -> None:
+    global _worker_thread
+    _worker_stop.set()
+    _worker_wake.set()
+    if _worker_thread:
+        _worker_thread.join(timeout=2)
+    _worker_thread = None
+
+
+@contextmanager
+def quiesce_processing():
+    """Prevent a job from using the database while it is being replaced."""
+    with _processing_lock:
+        yield
+
+
+def wake_processing_worker() -> None:
+    _worker_wake.set()
 
 
 def _run_video_processing(video_id: str, video_url: str) -> None:
     if not _video_exists(video_id):
         return
-
-    _set_video_processing_state(video_id, "downloading")
-    try:
-        _summarize_single_video(video_id, video_url)
-    except Exception as exc:
-        if _video_exists(video_id):
-            _set_video_processing_state(video_id, "failed", str(exc))
-        raise
-    else:
-        if _video_exists(video_id):
-            _set_video_processing_state(video_id, "ready")
+    _summarize_single_video(video_id, video_url)
 
 
 def _max_video_age_cutoff() -> datetime:
@@ -259,13 +378,11 @@ def _parse_timestamp(start_time: str) -> int:
         return 0
 
 
-def poll_and_summarize() -> dict:
-    """Main orchestration: poll all channel feeds, discover new videos, summarize them.
+def _poll_and_enqueue() -> dict:
+    """Poll all channel feeds and persist newly discovered videos as queued jobs.
 
     Phase 1 — discover new videos across *all* channels and insert them as
     ``queued`` (with title + thumbnail) so the UI can display them immediately.
-    Phase 2 — process each video sequentially.
-
     Returns a summary dict with counts.
     """
     stats = {"feeds_checked": 0, "new_videos": 0, "summarized": 0, "errors": 0}
@@ -285,7 +402,7 @@ def poll_and_summarize() -> dict:
         stats["feeds_checked"] += 1
         try:
             jobs = _discover_new_videos(channel_id, feed_url)
-        except (URLError, ParseError) as exc:
+        except Exception as exc:
             logger.warning("Feed error for %s: %s", channel_id, exc)
             stats["errors"] += 1
             continue
@@ -293,24 +410,26 @@ def poll_and_summarize() -> dict:
 
     stats["new_videos"] = len(all_jobs)
 
-    # Phase 2: process each discovered video
-    for video_id, video_url in all_jobs:
-        try:
-            _run_video_processing(video_id, video_url)
-            stats["summarized"] += 1
-        except Exception as exc:
-            logger.error("Summarization failed for %s: %s", video_id, exc)
-            stats["errors"] += 1
+    _start_background_video_processing(all_jobs)
 
     return stats
+
+
+def poll_and_summarize() -> dict:
+    # ponytail: one process-wide poll lock; use a distributed lock if multi-worker
+    # deployments are ever supported.
+    if not _poll_lock.acquire(blocking=False):
+        return {"feeds_checked": 0, "new_videos": 0, "summarized": 0, "errors": 0}
+    try:
+        return _poll_and_enqueue()
+    finally:
+        _poll_lock.release()
 
 
 def _summarize_single_video(video_id: str, video_url: str) -> None:
     """Download subtitles, summarize, and store results for one video."""
     if not _video_exists(video_id):
         return
-
-    sub_lang = get_setting("subtitle_language") or "en"
 
     metadata: dict = {}
     try:
@@ -352,9 +471,8 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
 
         # 1) Try subtitle download
         try:
-            srt_path, lang_used = download_subtitles(
+            srt_path = download_subtitles(
                 video_url,
-                sub_lang=sub_lang,
                 workdir=workdir,
                 video_metadata=metadata,
             )
@@ -396,13 +514,15 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
                 api_key=whisper_key,
                 model=whisper_model,
                 api_version=whisper_api_version,
-                language=sub_lang if sub_lang else None,
             )
 
     # Extract video title and channel name for LLM context
     video_title = metadata.get("title") or ""
     channel_name = metadata.get("channel") or metadata.get("uploader") or ""
 
+    if not _video_exists(video_id):
+        return
+    _set_video_processing_state(video_id, "summarizing")
     result = summarize_transcript(transcript, title=video_title, channel=channel_name)
 
     if not _video_exists(video_id):
@@ -413,6 +533,7 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
     chapters = result.get("chapters", [])
     language = get_setting("summary_language") or "English"
     llm_model = str(result.get("llm_model") or "")
+    prompt_version = str(result.get("prompt_version") or "")
     prompt_tokens = int(result.get("prompt_tokens") or 0)
     completion_tokens = int(result.get("completion_tokens") or 0)
     total_tokens = int(result.get("total_tokens") or (prompt_tokens + completion_tokens))
@@ -429,9 +550,17 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
 
     with get_db() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO summaries "
-            "(video_id, summary_text, key_points, language, primary_topic, llm_model, prompt_tokens, completion_tokens, total_tokens, llm_cost_usd) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO summaries "
+            "(video_id, summary_text, key_points, language, primary_topic, llm_model, prompt_version, prompt_tokens, completion_tokens, total_tokens, llm_cost_usd) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(video_id) DO UPDATE SET "
+            "summary_text=excluded.summary_text, key_points=excluded.key_points, "
+            "language=excluded.language, primary_topic=excluded.primary_topic, "
+            "llm_model=excluded.llm_model, prompt_version=excluded.prompt_version, "
+            "prompt_tokens=excluded.prompt_tokens, "
+            "completion_tokens=excluded.completion_tokens, total_tokens=excluded.total_tokens, "
+            "llm_cost_usd=excluded.llm_cost_usd, "
+            "created_at=strftime('%Y-%m-%dT%H:%M:%SZ', 'now')",
             (
                 video_id,
                 summary_text,
@@ -439,12 +568,14 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
                 language,
                 primary_topic,
                 llm_model,
+                prompt_version,
                 prompt_tokens,
                 completion_tokens,
                 total_tokens,
                 llm_cost_usd,
             ),
         )
+        conn.execute("DELETE FROM chapters WHERE video_id=?", (video_id,))
         for i, ch in enumerate(chapters):
             ts = _parse_timestamp(ch.get("start_time", "00:00:00"))
             conn.execute(
@@ -452,6 +583,11 @@ def _summarize_single_video(video_id: str, video_url: str) -> None:
                 "VALUES (?, ?, ?, ?, ?)",
                 (video_id, ts, ch.get("title", ""), ch.get("description", ""), i),
             )
+        conn.execute(
+            "UPDATE videos SET processing_status='ready', processing_error='', "
+            "next_retry_at='', processing_updated_at=? WHERE video_id=?",
+            (_utc_now(), video_id),
+        )
 
 
 def summarize_video_by_url(video_url: str) -> str:
@@ -469,7 +605,7 @@ def summarize_video_by_url(video_url: str) -> str:
             (video_id,),
         ).fetchone()
 
-    if row and row["processing_status"] in {"queued", "downloading", "summarizing", "ready"}:
+    if row and row["processing_status"] in {"queued", "downloading", "transcribing", "summarizing", "ready"}:
         return video_id
 
     try:
@@ -506,7 +642,8 @@ def summarize_video_by_url(video_url: str) -> str:
             "channel_id=excluded.channel_id, title=excluded.title, url=excluded.url, "
             "thumbnail_url=excluded.thumbnail_url, published_at=excluded.published_at, "
             "duration_seconds=excluded.duration_seconds, "
-            "processing_status='queued', processing_error=''",
+            "processing_status='queued', processing_error='', processing_attempts=0, "
+            "next_retry_at='', processing_updated_at=''",
             (channel_id, video_id, title, video_url, thumb, published, duration_seconds),
         )
 
@@ -523,13 +660,14 @@ def retry_video_processing(video_id: str) -> None:
         if not row:
             raise ValueError("Video not found")
 
-        if row["processing_status"] in {"queued", "downloading", "summarizing"}:
+        if row["processing_status"] in {"queued", "downloading", "transcribing", "summarizing"}:
             return
 
         conn.execute("DELETE FROM chapters WHERE video_id=?", (video_id,))
         conn.execute("DELETE FROM summaries WHERE video_id=?", (video_id,))
         conn.execute(
-            "UPDATE videos SET processing_status='queued', processing_error='' WHERE video_id=?",
+            "UPDATE videos SET processing_status='queued', processing_error='', "
+            "processing_attempts=0, next_retry_at='', processing_updated_at='' WHERE video_id=?",
             (video_id,),
         )
 

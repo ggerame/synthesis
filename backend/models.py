@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel
 
@@ -44,6 +44,7 @@ class SummaryOut(BaseModel):
     language: str
     primary_topic: str
     llm_model: str = ""
+    prompt_version: str = ""
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -75,6 +76,10 @@ class VideoListItem(BaseModel):
     llm_cost_usd: Optional[float] = None
     processing_status: str = "ready"
     processing_error: str = ""
+    processing_attempts: int = 0
+    processing_max_attempts: int = 3
+    next_retry_at: str = ""
+    processing_updated_at: str = ""
 
 
 class VideoDetail(BaseModel):
@@ -93,6 +98,10 @@ class VideoDetail(BaseModel):
     channel_avatar_url: str = ""
     processing_status: str = "ready"
     processing_error: str = ""
+    processing_attempts: int = 0
+    processing_max_attempts: int = 3
+    next_retry_at: str = ""
+    processing_updated_at: str = ""
     summary: Optional[SummaryOut] = None
     chapters: list[ChapterOut] = []
 
@@ -111,11 +120,11 @@ class SettingsPayload(BaseModel):
     llm_provider: str = "azure"
     llm_endpoint: str = ""
     llm_api_key: str = ""
-    llm_model: str = "gpt-5.4-nano"
+    llm_model: str = "gpt-5.6-luna"
     azure_api_version: str = "2025-03-01-preview"
-    summary_language: str = "English"
+    summary_language: Literal["English", "German", "Italian", "French", "Spanish", "Japanese", "Portuguese"] = "English"
+    language_preference_set: Literal["true", "false"] = "false"
     poll_interval_minutes: str = "30"
-    subtitle_language: str = "en"
     max_video_age_days: str = "30"
     whisper_fallback: str = "false"
     whisper_provider: str = "openai"
